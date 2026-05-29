@@ -1,0 +1,6 @@
+[submodule "vendor/frame-arcade-js"]
+	path = vendor/frame-arcade-js
+	url = /Users/marktruluck/projects/frame-arcade-js
+[submodule "vendor/frame-arcade"]
+	path = vendor/frame-arcade
+	url = /Users/marktruluck/projects/frame-arcade

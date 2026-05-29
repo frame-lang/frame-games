@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Frame Games</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="home" href="/index.html">&#9666; Frame Games</a>
+      <div class="title-block">
+        <h1 id="game-title">&nbsp;</h1>
+        <p id="game-teaches" class="teaches"></p>
+      </div>
+    </header>
+
+    <main class="game-layout">
+      <section class="play">
+        <div class="version-tabs" id="version-tabs"></div>
+        <div class="play-stage">
+          <div id="js-stage" class="stage"></div>
+          <div id="godot-stage" class="stage hidden"></div>
+        </div>
+        <p id="controls" class="controls"></p>
+      </section>
+
+      <aside class="fsm">
+        <h2>State machines</h2>
+        <p class="fsm-intro">The controller, exactly as written in Frame. The active state lights up as you play the JavaScript version.</p>
+        <div id="fsm-panel"></div>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/game.ts"></script>
+  </body>
+</html>
