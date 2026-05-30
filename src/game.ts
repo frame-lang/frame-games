@@ -1,47 +1,23 @@
 import Phaser from "phaser";
-import { breakout } from "../vendor/frame-arcade-js/src/games/breakout";
 import { FsmPanel, liveState, type MachineView } from "./fsm-panel";
+import { GAMES, channelName } from "./games";
 
-// A GameDef from the frame-arcade-js submodule (the JS runtime version) plus the
-// frame-games-specific bits: how to render each of its machines, and where the
-// Godot-WASM build lives. As more games come online, add entries here.
-interface GameEntry {
-  def: typeof breakout;
-  machineViews: (machine: unknown) => MachineView[];
-  godot?: { entry: string }; // path to the exported Godot HTML5/WASM index.html
-}
-
-const REGISTRY: Record<string, GameEntry> = {
-  breakout: {
-    def: breakout,
-    machineViews: (m) => {
-      const sub = m as { ball: unknown; bricks: unknown };
-      return [
-        {
-          system: "Breakout",
-          title: "Breakout — the orchestrator",
-          blurb:
-            "The top-level game. It owns a Ball and a BrickField and never lets the driver touch them directly — it routes collision events inward, updates score / lives / level, and decides when a round is cleared or lost. Paused is pushed onto the state stack so resume returns exactly where you left off.",
-          getState: () => liveState(m),
-          pushPop: [{ from: "Playing", to: "Paused", pushEvent: "pause" }],
-        },
-        {
-          system: "Ball",
-          title: "Ball",
-          blurb:
-            "The ball's three modes: attached to the paddle, in flight, or lost off the bottom. Velocity is a state variable that exists only while InFlight — so every launch is a fresh serve with no stale velocity.",
-          getState: () => liveState(sub.ball),
-        },
-        {
-          system: "BrickField",
-          title: "BrickField",
-          blurb:
-            "A deliberately tiny, one-state system. It exists only to own the brick list behind a clean interface — proof that a participant in a composition needn't itself be a complex machine.",
-          getState: () => liveState(sub.bricks),
-        },
-      ];
-    },
-    godot: { entry: "/games/breakout/versions/godot-wasm/index.html" },
+// Per-game live-state accessors. Static metadata (blurbs, push$/pop$ edges,
+// Godot path) lives in games.ts; this maps a game id to a function that, given
+// the top-level machine instance, returns a getter per system. Kept here
+// because it pokes at machine internals (`m.ball`, `m.bricks`) — runtime-only,
+// not part of the shareable metadata.
+const STATE_ACCESSORS: Record<
+  string,
+  (machine: unknown) => Record<string, () => string | null>
+> = {
+  breakout: (m) => {
+    const sub = m as { ball: unknown; bricks: unknown };
+    return {
+      Breakout: () => liveState(m),
+      Ball: () => liveState(sub.ball),
+      BrickField: () => liveState(sub.bricks),
+    };
   },
 };
 
@@ -52,10 +28,12 @@ const tabsEl = document.getElementById("version-tabs")!;
 const jsStage = document.getElementById("js-stage")!;
 const godotStage = document.getElementById("godot-stage")!;
 const panelEl = document.getElementById("fsm-panel")!;
+const popoutBtn = document.getElementById("popout") as HTMLButtonElement | null;
 
 const requestedId = new URLSearchParams(location.search).get("game") ?? "breakout";
-const entry = REGISTRY[requestedId] ?? REGISTRY.breakout;
+const entry = GAMES[requestedId] ?? GAMES.breakout;
 const def = entry.def;
+const accessorsFor = STATE_ACCESSORS[requestedId] ?? STATE_ACCESSORS.breakout;
 
 let godotLoaded = false;
 
@@ -98,10 +76,16 @@ async function loadGodot(): Promise<void> {
   // Probe a Godot-only artifact (the .pck) — Vite's SPA fallback returns 200
   // for any unknown index.html, so HEAD on the entry can lie and we'd embed
   // the page inside itself. The .pck only exists when the real export ran.
+  // Vite's fallback also serves the HTML index for .pck requests with
+  // Content-Type: text/html, so a plain `res.ok` check passes even when no
+  // build exists — reject the HTML fallback explicitly.
   const pckProbe = src.replace(/\.html(?:\?.*)?$/, ".pck");
   try {
     const res = await fetch(pckProbe, { method: "HEAD" });
     if (!res.ok) throw new Error(String(res.status));
+    if ((res.headers.get("content-type") ?? "").includes("text/html")) {
+      throw new Error("spa-fallback");
+    }
   } catch {
     return godotNote("Godot WASM build not generated yet — run `npm run build:godot`.");
   }
@@ -120,9 +104,16 @@ async function main(): Promise<void> {
 
   // --- JS version: machine + Phaser scene + live FSM panel ---
   const machine = def.createMachine();
+  const accessors = accessorsFor(machine);
+
+  // Compose live MachineViews from the static metadata + the runtime accessors.
+  const views: MachineView[] = entry.machines.map((m) => ({
+    ...m,
+    getState: accessors[m.system],
+  }));
 
   const panel = new FsmPanel(panelEl);
-  await panel.render(def.dot, entry.machineViews(machine));
+  await panel.render(def.dot, views);
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -143,11 +134,44 @@ async function main(): Promise<void> {
     game.input.keyboard?.addCapture(["SPACE", "UP", "DOWN", "LEFT", "RIGHT"]);
   });
 
+  // --- BroadcastChannel: publish state snapshots for the pop-out FSM viewer.
+  // Sent on change, plus on demand when a viewer pings — so a late-joining
+  // window lights up immediately instead of waiting for the next transition.
+  const channel = new BroadcastChannel(channelName(def.id));
+  let lastJson = "";
+  const sendSnapshot = (force: boolean): void => {
+    const snapshot: Record<string, string> = {};
+    for (const [sys, get] of Object.entries(accessors)) {
+      const s = get();
+      if (s) snapshot[sys] = s;
+    }
+    const json = JSON.stringify(snapshot);
+    if (force || json !== lastJson) {
+      channel.postMessage(snapshot);
+      lastJson = json;
+    }
+  };
+  channel.onmessage = (e) => {
+    if (e.data === "ping") sendSnapshot(true);
+  };
+
   const tick = (): void => {
     panel.tick();
+    sendSnapshot(false);
     requestAnimationFrame(tick);
   };
   tick();
+
+  // --- Pop-out button: opens fsm.html in a named window (reuses if already open).
+  if (popoutBtn) {
+    popoutBtn.onclick = () => {
+      window.open(
+        `/fsm.html?game=${encodeURIComponent(def.id)}`,
+        `fsm-${def.id}`,
+        "width=1400,height=900",
+      );
+    };
+  }
 }
 
 void main();

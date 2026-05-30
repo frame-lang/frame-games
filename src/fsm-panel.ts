@@ -92,11 +92,20 @@ export interface MachineView {
 }
 
 // Renders a stack of state-chart cards (one per machine) and live-highlights
-// each from its own getState() on every tick().
+// each from its own getState() on every tick(). The system name is tracked per
+// chart so an external source (e.g. a BroadcastChannel from another window)
+// can drive highlights via applyStates({ systemName: stateName }).
 export class FsmPanel {
-  private readonly charts: Array<{ chart: StateChart; getState?: () => string | null }> = [];
+  private readonly charts: Array<{
+    system: string;
+    chart: StateChart;
+    getState?: () => string | null;
+  }> = [];
 
-  constructor(private readonly container: HTMLElement) {}
+  constructor(
+    private readonly container: HTMLElement,
+    private readonly reorderable = false,
+  ) {}
 
   async render(fullDot: string, views: MachineView[]): Promise<void> {
     const byName = new Map(splitSystems(fullDot).map((s) => [s.system, s.dot]));
@@ -109,6 +118,8 @@ export class FsmPanel {
 
       const card = document.createElement("section");
       card.className = "fsm-card";
+
+      if (this.reorderable) card.appendChild(this.buildMoveBar(card));
 
       const h = document.createElement("h3");
       h.textContent = view.title ?? view.system;
@@ -129,8 +140,55 @@ export class FsmPanel {
       const processedDot = annotatePushPop(compactStateLabels(dot), view.pushPop ?? []);
       const chart = new StateChart(chartEl, processedDot);
       await chart.render();
-      this.charts.push({ chart, getState: view.getState });
+      this.charts.push({ system: view.system, chart, getState: view.getState });
     }
+
+    if (this.reorderable) this.refreshMoveButtons();
+  }
+
+  private buildMoveBar(card: HTMLElement): HTMLElement {
+    const bar = document.createElement("div");
+    bar.className = "fsm-move-bar";
+
+    const prev = document.createElement("button");
+    prev.type = "button";
+    prev.className = "move-prev";
+    prev.textContent = "←";
+    prev.setAttribute("aria-label", "Move left");
+    prev.onclick = () => this.moveCard(card, -1);
+
+    const label = document.createElement("span");
+    label.textContent = "Move";
+
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "move-next";
+    next.textContent = "→";
+    next.setAttribute("aria-label", "Move right");
+    next.onclick = () => this.moveCard(card, 1);
+
+    bar.append(prev, label, next);
+    return bar;
+  }
+
+  private moveCard(card: HTMLElement, dir: -1 | 1): void {
+    if (dir === -1 && card.previousElementSibling) {
+      this.container.insertBefore(card, card.previousElementSibling);
+    } else if (dir === 1 && card.nextElementSibling) {
+      this.container.insertBefore(card.nextElementSibling, card);
+    }
+    this.refreshMoveButtons();
+  }
+
+  private refreshMoveButtons(): void {
+    const cards = Array.from(this.container.children) as HTMLElement[];
+    const last = cards.length - 1;
+    cards.forEach((card, i) => {
+      const prev = card.querySelector(".move-prev") as HTMLButtonElement | null;
+      const next = card.querySelector(".move-next") as HTMLButtonElement | null;
+      if (prev) prev.disabled = i === 0;
+      if (next) next.disabled = i === last;
+    });
   }
 
   // Read each live machine and repaint its active node. Cheap to call every
@@ -138,6 +196,15 @@ export class FsmPanel {
   tick(): void {
     for (const { chart, getState } of this.charts) {
       const s = getState?.();
+      if (s) chart.highlight(s);
+    }
+  }
+
+  // Highlight each machine from an external state snapshot — the pop-out FSM
+  // window receives these via BroadcastChannel from the running game page.
+  applyStates(states: Readonly<Record<string, string>>): void {
+    for (const { system, chart } of this.charts) {
+      const s = states[system];
       if (s) chart.highlight(s);
     }
   }

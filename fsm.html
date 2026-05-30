@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>State machines &mdash; Frame Games</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="fsm-page-body">
+    <header class="topbar">
+      <div class="title-block">
+        <h1 id="game-title">&nbsp;</h1>
+        <p id="game-teaches" class="teaches"></p>
+      </div>
+      <span id="status" class="popout-status">Waiting for the game&hellip;</span>
+    </header>
+
+    <main class="fsm fsm-popout">
+      <p class="fsm-intro">Live FSM view, driven by the game window via BroadcastChannel. Open the game in another window to see the states update as you play.</p>
+      <div id="fsm-panel"></div>
+    </main>
+
+    <script type="module" src="/src/fsm-page.ts"></script>
+  </body>
+</html>

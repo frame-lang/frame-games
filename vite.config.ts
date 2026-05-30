@@ -2,12 +2,14 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
 export default defineConfig({
-  // Two pages: the games index and the per-game player.
+  // Three pages: the games index, the per-game player, and the pop-out FSM
+  // viewer (driven by BroadcastChannel from the player page).
   build: {
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),
         game: resolve(__dirname, "game.html"),
+        fsm: resolve(__dirname, "fsm.html"),
       },
     },
   },

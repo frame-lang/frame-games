@@ -11,7 +11,8 @@
     "prebuild": "bash build/gen.sh",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:godot": "bash build/godot.sh"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
