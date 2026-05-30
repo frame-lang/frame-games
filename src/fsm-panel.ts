@@ -35,6 +35,46 @@ export function splitSystems(dot: string): SystemDot[] {
   return systems;
 }
 
+// Collapse each node's HTML-table label (state name + its full event-handler /
+// state-variable list) down to just the state name, so a diagram shows states +
+// transitions only and all of a controller's machines fit on one screen. The
+// node id (and thus the SVG <title> the highlighter matches) is unchanged.
+export function compactStateLabels(dot: string): string {
+  return dot.replace(
+    /(\w+)\s*\[label = <[\s\S]*?> margin=0 shape=none\]/g,
+    (_match, name) => `${name} [label="${name}"]`,
+  );
+}
+
+// Frame's graphviz output renders `push$ -> $X` and the matching `-> pop$` via
+// a shared H* (Stack) pseudostate: the resume edge is drawn as `X -> Stack`,
+// but the forward push edge is silent (Stack has no incoming arrow). Without
+// Frame background that reads as "Paused is unreachable", which is wrong.
+// This injects a dashed forward edge for each declared push$/pop$ pair and
+// relabels the H* node with the state it returns to.
+export interface PushPopEdge {
+  from: string; // pushing state (e.g. "Playing")
+  to: string; // pushed-to state (e.g. "Paused")
+  pushEvent: string; // the event that triggers push$ (e.g. "pause")
+}
+
+export function annotatePushPop(dot: string, edges: readonly PushPopEdge[]): string {
+  if (edges.length === 0) return dot;
+  let result = dot;
+  const fromStates = Array.from(new Set(edges.map((e) => e.from)));
+  // Relabel Stack with the state(s) the resume edge pops back to.
+  result = result.replace(
+    /Stack\[shape="circle" label="H\*"/,
+    `Stack[shape="circle" label="↩ ${fromStates.join(" / ")}"`,
+  );
+  // Inject a dashed forward edge per declared push so the push$ path is visible.
+  const inserts = edges
+    .map((e) => `    ${e.from} -> ${e.to} [label=" ${e.pushEvent} (push$) " style="dashed"]`)
+    .join("\n");
+  result = result.replace(/\}\s*$/, inserts + "\n}");
+  return result;
+}
+
 // The current Frame state name of any generated machine — equals `current_state()`
 // for the main system, and works uniformly for sub-machines (which don't expose
 // that method). Returns the PascalCase state name that matches the .dot titles.
@@ -48,6 +88,7 @@ export interface MachineView {
   title?: string; // heading (defaults to `system`)
   blurb?: string; // prose shown under the heading
   getState?: () => string | null; // live state name; omit for a static diagram
+  pushPop?: readonly PushPopEdge[]; // synthetic push$/pop$ edges (see annotatePushPop)
 }
 
 // Renders a stack of state-chart cards (one per machine) and live-highlights
@@ -85,7 +126,8 @@ export class FsmPanel {
       card.appendChild(chartEl);
       this.container.appendChild(card);
 
-      const chart = new StateChart(chartEl, dot);
+      const processedDot = annotatePushPop(compactStateLabels(dot), view.pushPop ?? []);
+      const chart = new StateChart(chartEl, processedDot);
       await chart.render();
       this.charts.push({ chart, getState: view.getState });
     }

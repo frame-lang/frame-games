@@ -58,16 +58,10 @@ a:hover {
 
 /* ---- per-game layout ---- */
 .game-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   padding: 24px;
-  align-items: start;
-}
-@media (max-width: 1080px) {
-  .game-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ---- play column ---- */
@@ -128,7 +122,7 @@ a:hover {
   font-size: 13px;
 }
 
-/* ---- FSM panel ---- */
+/* ---- FSM panel: horizontal scroller of machine cards ---- */
 .fsm h2 {
   margin: 0 0 4px;
   font-size: 16px;
@@ -138,12 +132,20 @@ a:hover {
   color: var(--dim);
   font-size: 13px;
 }
+#fsm-panel {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  overflow-x: auto;
+  align-items: flex-start;
+  padding-bottom: 10px;
+}
 .fsm-card {
+  flex: 0 0 360px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 14px 16px;
-  margin-bottom: 16px;
 }
 .fsm-card h3 {
   margin: 0 0 6px;

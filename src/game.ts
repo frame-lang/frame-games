@@ -23,6 +23,7 @@ const REGISTRY: Record<string, GameEntry> = {
           blurb:
             "The top-level game. It owns a Ball and a BrickField and never lets the driver touch them directly — it routes collision events inward, updates score / lives / level, and decides when a round is cleared or lost. Paused is pushed onto the state stack so resume returns exactly where you left off.",
           getState: () => liveState(m),
+          pushPop: [{ from: "Playing", to: "Paused", pushEvent: "pause" }],
         },
         {
           system: "Ball",
@@ -94,8 +95,12 @@ async function loadGodot(): Promise<void> {
   godotLoaded = true;
   const src = entry.godot?.entry;
   if (!src) return godotNote("No Godot build is configured for this game.");
+  // Probe a Godot-only artifact (the .pck) — Vite's SPA fallback returns 200
+  // for any unknown index.html, so HEAD on the entry can lie and we'd embed
+  // the page inside itself. The .pck only exists when the real export ran.
+  const pckProbe = src.replace(/\.html(?:\?.*)?$/, ".pck");
   try {
-    const res = await fetch(src, { method: "HEAD" });
+    const res = await fetch(pckProbe, { method: "HEAD" });
     if (!res.ok) throw new Error(String(res.status));
   } catch {
     return godotNote("Godot WASM build not generated yet — run `npm run build:godot`.");
@@ -119,13 +124,23 @@ async function main(): Promise<void> {
   const panel = new FsmPanel(panelEl);
   await panel.render(def.dot, entry.machineViews(machine));
 
-  new Phaser.Game({
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: jsStage,
     width: def.width ?? 720,
     height: def.height ?? 480,
     backgroundColor: "#0b0e14",
     scene: new def.Scene(machine),
+  });
+
+  // Tell Phaser to capture (preventDefault) the keys the game uses, so the
+  // browser doesn't scroll the page on SPACE / arrows. Phaser preventDefaults
+  // captured keys INSIDE its own keydown handler — after it queues the event —
+  // so the scene still receives them. A naive window-level preventDefault
+  // listener would break this: Phaser's keydown handler bails when it sees
+  // event.defaultPrevented, and the canvas would receive nothing.
+  game.events.once("ready", () => {
+    game.input.keyboard?.addCapture(["SPACE", "UP", "DOWN", "LEFT", "RIGHT"]);
   });
 
   const tick = (): void => {
