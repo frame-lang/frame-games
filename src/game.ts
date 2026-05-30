@@ -19,6 +19,9 @@ const STATE_ACCESSORS: Record<
       BrickField: () => liveState(sub.bricks),
     };
   },
+  pong: (m) => ({
+    Pong: () => liveState(m),
+  }),
 };
 
 const titleEl = document.getElementById("game-title")!;

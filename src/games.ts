@@ -4,7 +4,10 @@
 // Scene + the generated .dot). Adding a game is mostly a data change — drop
 // in games/<id>/game.json and add one entry here pointing at its def.
 import { breakout } from "../vendor/frame-arcade-js/src/games/breakout";
+import { pong } from "../vendor/frame-arcade-js/src/games/pong";
 import breakoutManifest from "../games/breakout/game.json";
+import pongManifest from "../games/pong/game.json";
+import type { GameDef } from "../vendor/frame-arcade-js/src/games/types";
 import type { PushPopEdge } from "./fsm-panel";
 
 export interface MachineMeta {
@@ -33,7 +36,7 @@ export interface GameManifest {
 export interface GameEntry {
   // The vendored GameDef brings the generated .dot + the JS createMachine
   // factory + the Phaser Scene class. Display metadata comes from `manifest`.
-  def: typeof breakout;
+  def: GameDef;
   manifest: GameManifest;
 }
 
@@ -41,6 +44,10 @@ export const GAMES: Record<string, GameEntry> = {
   breakout: {
     def: breakout,
     manifest: breakoutManifest as GameManifest,
+  },
+  pong: {
+    def: pong,
+    manifest: pongManifest as GameManifest,
   },
 };
 
