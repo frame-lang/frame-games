@@ -1,0 +1,24 @@
+{
+  "id": "breakout",
+  "title": "Breakout",
+  "summary": "Multi-system composition — a Ball, a BrickField, and the game that owns them.",
+  "teaches": "Orchestrator flow · lives & levels · clear/lose branching",
+  "controls": "A/D or ←/→ move · SPACE launch/next/replay · P pause",
+  "machines": [
+    {
+      "system": "Breakout",
+      "title": "Breakout — the orchestrator",
+      "blurb": "The top-level game. It owns a Ball and a BrickField and never lets the driver touch them directly — it routes collision events inward, updates score / lives / level, and decides when a round is cleared or lost. Paused is pushed onto the state stack so resume returns exactly where you left off.",
+      "pushPop": [{ "from": "Playing", "to": "Paused", "pushEvent": "pause" }]
+    },
+    {
+      "system": "Ball",
+      "title": "Ball",
+      "blurb": "The ball's three modes: attached to the paddle, in flight, or lost off the bottom. Velocity is a state variable that exists only while InFlight — so every launch is a fresh serve with no stale velocity. After a miss the Ball self-attaches via a 2-second tick so the player sees the loss."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "JavaScript" },
+    { "id": "godot-wasm", "label": "Godot (WASM)", "entry": "/games/breakout/versions/godot-wasm/index.html" }
+  ]
+}

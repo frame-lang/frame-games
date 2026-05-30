@@ -1,12 +1,12 @@
 import Phaser from "phaser";
 import { FsmPanel, liveState, type MachineView } from "./fsm-panel";
-import { GAMES, channelName } from "./games";
+import { GAMES, channelName, versionEntry } from "./games";
 
-// Per-game live-state accessors. Static metadata (blurbs, push$/pop$ edges,
-// Godot path) lives in games.ts; this maps a game id to a function that, given
-// the top-level machine instance, returns a getter per system. Kept here
-// because it pokes at machine internals (`m.ball`, `m.bricks`) — runtime-only,
-// not part of the shareable metadata.
+// Per-game live-state accessors. Display metadata (titles, blurbs, push$/pop$
+// edges, version entries) lives in games/<id>/game.json; this maps a game id
+// to a function that, given the top-level machine instance, returns a getter
+// per system. Kept here because it pokes at machine internals (`m.ball`,
+// `m.bricks`) — runtime-only, not part of the shareable manifest.
 const STATE_ACCESSORS: Record<
   string,
   (machine: unknown) => Record<string, () => string | null>
@@ -33,32 +33,29 @@ const popoutBtn = document.getElementById("popout") as HTMLButtonElement | null;
 const requestedId = new URLSearchParams(location.search).get("game") ?? "breakout";
 const entry = GAMES[requestedId] ?? GAMES.breakout;
 const def = entry.def;
+const manifest = entry.manifest;
 const accessorsFor = STATE_ACCESSORS[requestedId] ?? STATE_ACCESSORS.breakout;
 
 let godotLoaded = false;
 
-function renderTabs(active: "js" | "godot"): void {
-  const versions: Array<{ v: "js" | "godot"; label: string }> = [
-    { v: "js", label: "JavaScript" },
-    { v: "godot", label: "Godot (WASM)" },
-  ];
+function renderTabs(active: string): void {
   tabsEl.replaceChildren(
-    ...versions.map(({ v, label }) => {
+    ...manifest.versions.map((v) => {
       const b = document.createElement("button");
-      b.textContent = label;
-      b.className = "tab" + (v === active ? " active" : "");
-      b.dataset.v = v;
-      b.onclick = () => showVersion(v);
+      b.textContent = v.label;
+      b.className = "tab" + (v.id === active ? " active" : "");
+      b.dataset.v = v.id;
+      b.onclick = () => showVersion(v.id);
       return b;
     }),
   );
 }
 
-function showVersion(v: "js" | "godot"): void {
-  jsStage.classList.toggle("hidden", v !== "js");
-  godotStage.classList.toggle("hidden", v !== "godot");
-  renderTabs(v);
-  if (v === "godot" && !godotLoaded) void loadGodot();
+function showVersion(id: string): void {
+  jsStage.classList.toggle("hidden", id !== "js");
+  godotStage.classList.toggle("hidden", id !== "godot-wasm");
+  renderTabs(id);
+  if (id === "godot-wasm" && !godotLoaded) void loadGodot();
 }
 
 function godotNote(msg: string): void {
@@ -71,7 +68,7 @@ function godotNote(msg: string): void {
 // Lazy: only fetch/boot the (heavy) Godot WASM build when its tab is opened.
 async function loadGodot(): Promise<void> {
   godotLoaded = true;
-  const src = entry.godot?.entry;
+  const src = versionEntry(manifest, "godot-wasm")?.entry;
   if (!src) return godotNote("No Godot build is configured for this game.");
   // Probe a Godot-only artifact (the .pck) — Vite's SPA fallback returns 200
   // for any unknown index.html, so HEAD on the entry can lie and we'd embed
@@ -92,22 +89,23 @@ async function loadGodot(): Promise<void> {
   const frame = document.createElement("iframe");
   frame.src = src;
   frame.className = "godot-frame";
-  frame.title = `${def.title} — Godot (WASM)`;
+  frame.title = `${manifest.title} — Godot (WASM)`;
   godotStage.replaceChildren(frame);
 }
 
 async function main(): Promise<void> {
-  titleEl.textContent = def.title;
-  teachesEl.textContent = def.teaches;
-  controlsEl.textContent = def.controls;
+  titleEl.textContent = manifest.title;
+  teachesEl.textContent = manifest.teaches;
+  controlsEl.textContent = manifest.controls;
+  document.title = `${manifest.title} — Frame Games`;
   renderTabs("js");
 
   // --- JS version: machine + Phaser scene + live FSM panel ---
   const machine = def.createMachine();
   const accessors = accessorsFor(machine);
 
-  // Compose live MachineViews from the static metadata + the runtime accessors.
-  const views: MachineView[] = entry.machines.map((m) => ({
+  // Compose live MachineViews from the manifest metadata + the runtime accessors.
+  const views: MachineView[] = manifest.machines.map((m) => ({
     ...m,
     getState: accessors[m.system],
   }));
@@ -137,7 +135,7 @@ async function main(): Promise<void> {
   // --- BroadcastChannel: publish state snapshots for the pop-out FSM viewer.
   // Sent on change, plus on demand when a viewer pings — so a late-joining
   // window lights up immediately instead of waiting for the next transition.
-  const channel = new BroadcastChannel(channelName(def.id));
+  const channel = new BroadcastChannel(channelName(manifest.id));
   let lastJson = "";
   const sendSnapshot = (force: boolean): void => {
     // When the Godot tab is active, the iframe's own publisher drives the
@@ -170,8 +168,8 @@ async function main(): Promise<void> {
   if (popoutBtn) {
     popoutBtn.onclick = () => {
       window.open(
-        `/fsm.html?game=${encodeURIComponent(def.id)}`,
-        `fsm-${def.id}`,
+        `/fsm.html?game=${encodeURIComponent(manifest.id)}`,
+        `fsm-${manifest.id}`,
         "width=1400,height=900",
       );
     };

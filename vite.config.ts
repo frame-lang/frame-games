@@ -5,6 +5,9 @@ export default defineConfig({
   // Three pages: the games index, the per-game player, and the pop-out FSM
   // viewer (driven by BroadcastChannel from the player page).
   build: {
+    // ES2022 so fsm-page.ts can use top-level await for the chart render.
+    // Browser support: Chrome 89+, Firefox 89+, Safari 15+, Edge 89+.
+    target: "es2022",
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),

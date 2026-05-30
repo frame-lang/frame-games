@@ -1,11 +1,10 @@
-// Shared per-game metadata used by both the game page (game.ts, which mounts
-// the playable + live FSM panel) and the pop-out FSM viewer page (fsm-page.ts,
-// which renders the same machines but is driven by BroadcastChannel snapshots
-// from a separate window). The GameDef from the vendored frame-arcade-js
-// submodule supplies the id / title / teaches / controls / dot; this file
-// adds the showcase-specific bits (per-machine blurbs, push$/pop$ edges, the
-// Godot WASM build path).
+// The per-game registry. Each entry wires a manifest JSON (titles, blurbs,
+// per-machine FSM metadata, version list) to the runtime bits that can't go
+// in JSON: the vendored GameDef from frame-arcade-js (createMachine + Phaser
+// Scene + the generated .dot). Adding a game is mostly a data change — drop
+// in games/<id>/game.json and add one entry here pointing at its def.
 import { breakout } from "../vendor/frame-arcade-js/src/games/breakout";
+import breakoutManifest from "../games/breakout/game.json";
 import type { PushPopEdge } from "./fsm-panel";
 
 export interface MachineMeta {
@@ -15,34 +14,40 @@ export interface MachineMeta {
   pushPop?: readonly PushPopEdge[];
 }
 
-export interface GameMeta {
-  def: typeof breakout; // brings id, title, teaches, controls, dot, createMachine, Scene
-  machines: readonly MachineMeta[];
-  godot?: { entry: string };
+export interface VersionMeta {
+  id: string; // "js" / "godot-wasm" / …
+  label: string;
+  entry?: string; // public path to the version's playable, when external
 }
 
-export const GAMES: Record<string, GameMeta> = {
+export interface GameManifest {
+  id: string;
+  title: string;
+  summary: string; // index-card description
+  teaches: string; // game-page header tagline
+  controls: string;
+  machines: readonly MachineMeta[];
+  versions: readonly VersionMeta[];
+}
+
+export interface GameEntry {
+  // The vendored GameDef brings the generated .dot + the JS createMachine
+  // factory + the Phaser Scene class. Display metadata comes from `manifest`.
+  def: typeof breakout;
+  manifest: GameManifest;
+}
+
+export const GAMES: Record<string, GameEntry> = {
   breakout: {
     def: breakout,
-    machines: [
-      {
-        system: "Breakout",
-        title: "Breakout — the orchestrator",
-        blurb:
-          "The top-level game. It owns a Ball and a BrickField and never lets the driver touch them directly — it routes collision events inward, updates score / lives / level, and decides when a round is cleared or lost. Paused is pushed onto the state stack so resume returns exactly where you left off.",
-        pushPop: [{ from: "Playing", to: "Paused", pushEvent: "pause" }],
-      },
-      {
-        system: "Ball",
-        title: "Ball",
-        blurb:
-          "The ball's three modes: attached to the paddle, in flight, or lost off the bottom. Velocity is a state variable that exists only while InFlight — so every launch is a fresh serve with no stale velocity.",
-      },
-    ],
-    godot: { entry: "/games/breakout/versions/godot-wasm/index.html" },
+    manifest: breakoutManifest as GameManifest,
   },
 };
 
 // Build the BroadcastChannel name for a given game. The game page publishes
 // snapshots on this channel; pop-out FSM viewers for the same game listen.
 export const channelName = (gameId: string): string => `frame-games:state:${gameId}`;
+
+// Find a version entry by id (e.g. "godot-wasm"); returns undefined if absent.
+export const versionEntry = (manifest: GameManifest, id: string): VersionMeta | undefined =>
+  manifest.versions.find((v) => v.id === id);

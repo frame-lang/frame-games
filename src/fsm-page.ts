@@ -14,20 +14,21 @@ const statusEl = document.getElementById("status")!;
 const requestedId = new URLSearchParams(location.search).get("game") ?? "breakout";
 const entry = GAMES[requestedId] ?? GAMES.breakout;
 const def = entry.def;
+const manifest = entry.manifest;
 
-titleEl.textContent = `${def.title} — state machines`;
-teachesEl.textContent = def.teaches;
-document.title = `${def.title} state machines — Frame Games`;
+titleEl.textContent = `${manifest.title} — state machines`;
+teachesEl.textContent = manifest.teaches;
+document.title = `${manifest.title} state machines — Frame Games`;
 
 // No getState callbacks here — the panel is driven entirely by applyStates()
 // from incoming broadcasts. The metadata (titles, blurbs, push$/pop$ edges)
-// comes straight from the shared games registry.
-const views: MachineView[] = entry.machines.map((m) => ({ ...m }));
+// comes straight from the manifest.
+const views: MachineView[] = manifest.machines.map((m) => ({ ...m }));
 
 const panel = new FsmPanel(panelEl, true);
 await panel.render(def.dot, views);
 
-const channel = new BroadcastChannel(channelName(def.id));
+const channel = new BroadcastChannel(channelName(manifest.id));
 
 channel.onmessage = (e) => {
   if (typeof e.data !== "object" || e.data === null) return;

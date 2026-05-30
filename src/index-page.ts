@@ -1,41 +1,36 @@
-// The games index. For now this is a small static list; Phase 4 will make it
-// read each games/<id>/game.json manifest so adding a game is data-only.
-interface IndexEntry {
-  id: string;
-  title: string;
-  teaches: string;
-  versions: string[];
-}
+// The games index. Data-driven: Vite eager-loads every games/<id>/game.json
+// manifest at build time, so adding a game is a data-only change — drop in a
+// new manifest and it appears in the grid.
+import type { GameManifest } from "./games";
 
-const GAMES: IndexEntry[] = [
-  {
-    id: "breakout",
-    title: "Breakout",
-    teaches: "Multi-system composition — a Ball, a BrickField, and the game that owns them.",
-    versions: ["JavaScript", "Godot (WASM)"],
-  },
-];
+const modules = import.meta.glob<{ default: GameManifest }>(
+  "../games/*/game.json",
+  { eager: true },
+);
+const manifests = Object.values(modules)
+  .map((m) => m.default)
+  .sort((a, b) => a.title.localeCompare(b.title));
 
 const grid = document.getElementById("game-grid")!;
 grid.replaceChildren(
-  ...GAMES.map((g) => {
+  ...manifests.map((m) => {
     const a = document.createElement("a");
     a.className = "game-card";
-    a.href = `/game.html?game=${encodeURIComponent(g.id)}`;
+    a.href = `/game.html?game=${encodeURIComponent(m.id)}`;
 
     const h = document.createElement("h2");
-    h.textContent = g.title;
+    h.textContent = m.title;
 
     const t = document.createElement("p");
     t.className = "teaches";
-    t.textContent = g.teaches;
+    t.textContent = m.summary;
 
     const versions = document.createElement("div");
     versions.className = "versions";
-    for (const v of g.versions) {
+    for (const v of m.versions) {
       const badge = document.createElement("span");
       badge.className = "badge";
-      badge.textContent = v;
+      badge.textContent = v.label;
       versions.appendChild(badge);
     }
 
