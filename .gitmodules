@@ -1,6 +1,6 @@
 [submodule "vendor/frame-arcade-js"]
 	path = vendor/frame-arcade-js
-	url = /Users/marktruluck/projects/frame-arcade-js
+	url = https://github.com/frame-lang/frame-arcade-js.git
 [submodule "vendor/frame-arcade"]
 	path = vendor/frame-arcade
-	url = /Users/marktruluck/projects/frame-arcade
+	url = https://github.com/frame-lang/frame-arcade.git
