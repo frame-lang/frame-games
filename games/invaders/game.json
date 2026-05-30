@@ -1,0 +1,32 @@
+{
+  "id": "invaders",
+  "title": "Space Invaders",
+  "summary": "Three composed machines plus Frame's hierarchical-state-machine feature — pause() lives on the $InGame parent and Playing, PlayerDying, and WaveComplete all inherit it.",
+  "teaches": "Hierarchical state machine · $Wave parent · inherited handlers via => $^",
+  "controls": "A/D or ←/→ move · SPACE fire/restart · P pause",
+  "machines": [
+    {
+      "system": "Invaders",
+      "title": "Invaders — the orchestrator",
+      "blurb": "Top-level controller. Attract zeroes the score, then start advances into the $InGame parent which holds three children: Playing (the rally), PlayerDying (the brief stun after a hit), and WaveComplete (between waves). Because pause() is handled on the $InGame parent, every child inherits it — push$ stashes the current child and transitions to Paused, and resume pops back to whichever was active.",
+      "pushPop": [
+        { "from": "Playing", "to": "Paused", "pushEvent": "pause" },
+        { "from": "PlayerDying", "to": "Paused", "pushEvent": "pause" },
+        { "from": "WaveComplete", "to": "Paused", "pushEvent": "pause" }
+      ]
+    },
+    {
+      "system": "Player",
+      "title": "Player",
+      "blurb": "The player's modes: Alive (steerable, can shoot), Exploding (the death animation), Invulnerable (a grace window after respawn so a stray bullet doesn't kill you on entry), and Dead (out of lives). The Invaders orchestrator routes hits and respawns; the Player machine decides what they mean."
+    },
+    {
+      "system": "Fleet",
+      "title": "Fleet",
+      "blurb": "The alien formation. Marching is the steady horizontal sweep; Stepping is the brief downward shift at the edge before reversing direction; Defeated is the wave-cleared end state. Owns the alive/dead bitmap behind kill_invader(index)."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "JavaScript" }
+  ]
+}

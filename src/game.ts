@@ -22,6 +22,14 @@ const STATE_ACCESSORS: Record<
   pong: (m) => ({
     Pong: () => liveState(m),
   }),
+  invaders: (m) => {
+    const sub = m as { player: unknown; fleet: unknown };
+    return {
+      Invaders: () => liveState(m),
+      Player: () => liveState(sub.player),
+      Fleet: () => liveState(sub.fleet),
+    };
+  },
 };
 
 const titleEl = document.getElementById("game-title")!;

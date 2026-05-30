@@ -5,8 +5,10 @@
 // in games/<id>/game.json and add one entry here pointing at its def.
 import { breakout } from "../vendor/frame-arcade-js/src/games/breakout";
 import { pong } from "../vendor/frame-arcade-js/src/games/pong";
+import { invaders } from "../vendor/frame-arcade-js/src/games/invaders";
 import breakoutManifest from "../games/breakout/game.json";
 import pongManifest from "../games/pong/game.json";
+import invadersManifest from "../games/invaders/game.json";
 import type { GameDef } from "../vendor/frame-arcade-js/src/games/types";
 import type { PushPopEdge } from "./fsm-panel";
 
@@ -48,6 +50,10 @@ export const GAMES: Record<string, GameEntry> = {
   pong: {
     def: pong,
     manifest: pongManifest as GameManifest,
+  },
+  invaders: {
+    def: invaders,
+    manifest: invadersManifest as GameManifest,
   },
 };
 
