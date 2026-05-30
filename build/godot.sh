@@ -42,6 +42,75 @@ rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
 cp -R "$SRC_PROJECT/godot/." "$STAGE_DIR/"
 
+echo "==> inject live FSM state publisher (BroadcastChannel autoload)"
+# Posts the Breakout/Ball state to the same BroadcastChannel the JS version
+# uses, so the frame-games FSM popout highlights live states when you play
+# the Godot (WASM) tab. Web-only — non-web exports are no-ops.
+cat > "$STAGE_DIR/scripts/live_state_publisher.gd" <<'EOF'
+# Auto-injected by frame-games/build/godot.sh — do not edit by hand.
+# Reads the Breakout FSM's current Frame compartment state every frame and
+# pushes a { Breakout, Ball } snapshot onto a BroadcastChannel that
+# frame-games's FSM popout (fsm.html) listens on.
+extends Node
+
+const CHANNEL_NAME := "frame-games:state:breakout"
+
+var _channel: JavaScriptObject = null
+var _on_message_ref: JavaScriptObject = null
+var _last_sig := ""
+
+func _ready() -> void:
+    if not OS.has_feature("web"):
+        return
+    _channel = JavaScriptBridge.create_object("BroadcastChannel", CHANNEL_NAME)
+    _on_message_ref = JavaScriptBridge.create_callback(_on_channel_message)
+    _channel.onmessage = _on_message_ref
+
+func _process(_dt: float) -> void:
+    _publish(false)
+
+func _on_channel_message(args) -> void:
+    # Pop-out viewers ping to request a fresh snapshot when they open.
+    if args.size() > 0 and args[0].data == "ping":
+        _publish(true)
+
+func _publish(force: bool) -> void:
+    if _channel == null:
+        return
+    var scene = get_tree().get_current_scene()
+    if scene == null:
+        return
+    var fsm = scene.get("fsm")
+    if fsm == null:
+        return
+    var bk: String = fsm.__compartment.state
+    var ball: String = fsm.ball.__compartment.state
+    var sig := bk + "|" + ball
+    if not force and sig == _last_sig:
+        return
+    _last_sig = sig
+    var snapshot := JavaScriptBridge.create_object("Object")
+    snapshot.Breakout = bk
+    snapshot.Ball = ball
+    _channel.postMessage(snapshot)
+EOF
+
+echo "==> register live_state_publisher as autoload in project.godot"
+# Append (or replace) the [autoload] section. The original project.godot
+# doesn't have one, so a simple append is safe; if a future submodule change
+# adds an autoload section we'd need to merge instead.
+if grep -q "^\[autoload\]" "$STAGE_DIR/project.godot"; then
+    echo "warning: project.godot already has [autoload] — appending entry, but you may want to merge by hand"
+    printf '\nLiveStatePublisher="*res://scripts/live_state_publisher.gd"\n' >> "$STAGE_DIR/project.godot"
+else
+    cat >> "$STAGE_DIR/project.godot" <<'EOF'
+
+[autoload]
+
+LiveStatePublisher="*res://scripts/live_state_publisher.gd"
+EOF
+fi
+
 echo "==> write Web export preset"
 cat > "$STAGE_DIR/export_presets.cfg" <<'EOF'
 [preset.0]

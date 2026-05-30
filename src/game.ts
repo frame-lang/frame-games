@@ -140,6 +140,10 @@ async function main(): Promise<void> {
   const channel = new BroadcastChannel(channelName(def.id));
   let lastJson = "";
   const sendSnapshot = (force: boolean): void => {
+    // When the Godot tab is active, the iframe's own publisher drives the
+    // channel; broadcasting from the hidden JS game on top would race and
+    // make the diagrams flicker between the two engines' states.
+    if (jsStage.classList.contains("hidden")) return;
     const snapshot: Record<string, string> = {};
     for (const [sys, get] of Object.entries(accessors)) {
       const s = get();
