@@ -49,6 +49,14 @@ const STATE_ACCESSORS: Record<
       GhostPen: () => liveState(sub.pen),
     };
   },
+  platformer: (m) => {
+    const sub = m as { loco: unknown; power: unknown };
+    return {
+      Platformer: () => liveState(m),
+      Locomotion: () => liveState(sub.loco),
+      PowerUp: () => liveState(sub.power),
+    };
+  },
 };
 
 const titleEl = document.getElementById("game-title")!;

@@ -1,0 +1,28 @@
+{
+  "id": "platformer",
+  "title": "Platformer",
+  "summary": "Orthogonal-state composition — two independent sub-FSMs (motion + form) run in parallel under one orchestrator, instead of flattening into a 6×3 matrix.",
+  "teaches": "Orthogonal-state composition vs matrix HSM · two independent sub-FSMs (motion + form) under one orchestrator · push$/pop$ pause",
+  "controls": "Arrows/WASD move · Shift run · Space jump · grab the mushroom/flower · P pause · R reset pickups",
+  "machines": [
+    {
+      "system": "Platformer",
+      "title": "Platformer — the orchestrator",
+      "blurb": "A thin orchestrator: Playing forwards every input + tick event to two sub-machines that run independently — Locomotion (movement) and PowerUp (form). Pause is push$/pop$ from Playing so resume returns to Playing with both sub-machines exactly as they were. Flattening this into a single HSM would give you 6×3=18 leaf states; the composed form is two diagrams.",
+      "pushPop": [{ "from": "Playing", "to": "Paused", "pushEvent": "pause" }]
+    },
+    {
+      "system": "Locomotion",
+      "title": "Locomotion — the motion FSM",
+      "blurb": "Movement, independent of form. Idle waits, Walking and Running track ground speed (Shift toggles the upshift), Jumping is the upward arc, Falling the downward, and Landing the brief recovery before Idle. Every transition is driven by an input or ground-contact event from the orchestrator — the machine owns when each one is valid."
+    },
+    {
+      "system": "PowerUp",
+      "title": "PowerUp — the form FSM",
+      "blurb": "Form, independent of motion. Small is the base form; grab a mushroom and you Big out (taller hit-box); grab a flower and you go Fiery (taller hit-box + can shoot). A hit knocks you down one form. Running these as a separate FSM keeps the matrix flat — you don't multiply through Locomotion's six states."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "JavaScript" }
+  ]
+}
