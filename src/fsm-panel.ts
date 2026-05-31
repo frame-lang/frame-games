@@ -46,6 +46,17 @@ export function compactStateLabels(dot: string): string {
   );
 }
 
+// HSM parent states are emitted as `subgraph cluster_<Parent> { label = <html> … }`
+// in Frame's graphviz output, with the same heavy method-list table as nodes
+// use. Collapse it to a plain quoted parent name so the cluster reads cleanly
+// as a box around its children.
+export function compactClusterLabels(dot: string): string {
+  return dot.replace(
+    /(subgraph\s+cluster_(\w+)\s*\{\s*)label\s*=\s*<[\s\S]*?>/g,
+    (_match, prefix, name) => `${prefix}label = "${name}"`,
+  );
+}
+
 // Frame's graphviz output renders `push$ -> $X` and the matching `-> pop$` via
 // a shared H* (Stack) pseudostate: the resume edge is drawn as `X -> Stack`,
 // but the forward push edge is silent (Stack has no incoming arrow). Without
@@ -141,7 +152,10 @@ export class FsmPanel {
       card.appendChild(chartEl);
       this.container.appendChild(card);
 
-      const processedDot = annotatePushPop(compactStateLabels(dot), view.pushPop ?? []);
+      const processedDot = annotatePushPop(
+        compactClusterLabels(compactStateLabels(dot)),
+        view.pushPop ?? [],
+      );
       const chart = new StateChart(chartEl, processedDot);
       await chart.render();
       this.charts.push({ system: view.system, chart, getState: view.getState });

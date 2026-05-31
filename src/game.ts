@@ -38,6 +38,17 @@ const STATE_ACCESSORS: Record<
       AsteroidField: () => liveState(sub.field),
     };
   },
+  pacman: (m) => {
+    // Four ghosts run the same FSM; the panel visualizes the first one (the
+    // others are state-equivalent for diagram purposes, just differently
+    // parameterized — Blinky / Pinky / Inky / Clyde).
+    const sub = m as { ghosts: unknown[]; pen: unknown };
+    return {
+      GhostGame: () => liveState(m),
+      Ghost: () => liveState(sub.ghosts[0]),
+      GhostPen: () => liveState(sub.pen),
+    };
+  },
 };
 
 const titleEl = document.getElementById("game-title")!;

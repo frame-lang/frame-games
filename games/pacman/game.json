@@ -1,0 +1,34 @@
+{
+  "id": "pacman",
+  "title": "Pac-Man (Ghost AI)",
+  "summary": "Ghost-mode AI as nested state machines — four ghosts each running the same FSM, with HSM-inherited frighten handling and a top-level mode cycle.",
+  "teaches": "HSM ghost modes · $OutOfPen parent · Scatter/Chase/Frightened/Eaten · two push$/pop$ scales",
+  "controls": "Arrows move · grab the pellet to frighten the ghost · P pause · SPACE start/restart",
+  "machines": [
+    {
+      "system": "GhostGame",
+      "title": "GhostGame — the orchestrator",
+      "blurb": "The phase clock for the whole arena. Idle waits for start; then the global mode cycles Scatter ⇄ Chase on a tick timer. Grabbing the power pellet is push$/pop$ at the GAME scale: from either Scatter or Chase, push$ stashes the current global mode and transitions to Frightened; when the frighten timer expires, pop$ returns to whichever was active so the cycle picks up where it left off.",
+      "pushPop": [
+        { "from": "Scatter", "to": "Frightened", "pushEvent": "power_pellet_picked_up" },
+        { "from": "Chase", "to": "Frightened", "pushEvent": "power_pellet_picked_up" }
+      ]
+    },
+    {
+      "system": "Ghost",
+      "title": "Ghost — HSM + per-ghost frighten subroutine",
+      "blurb": "Each of the four ghosts runs this same parameterized machine independently (Blinky / Pinky / Inky / Clyde with different home corners and target kinds); the diagram tracks the first one. OutOfPen is the HSM parent — Chase and Scatter inherit its frighten handler, so power_pellet_eaten works in either child. push$ stashes the current OutOfPen child; pop$ returns to it after frighten expires. Eaten is the death-and-return-to-pen detour.",
+      "pushPop": [
+        { "from": "OutOfPen", "to": "Frightened", "pushEvent": "power_pellet_eaten" }
+      ]
+    },
+    {
+      "system": "GhostPen",
+      "title": "GhostPen",
+      "blurb": "The home cage. Single-state system that owns the release schedule and pen reset; the orchestrator routes release / arrival events here, and individual ghosts move InPen ⇄ OutOfPen ⇄ Eaten in response."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "JavaScript" }
+  ]
+}

@@ -14,7 +14,7 @@ if ! command -v framec >/dev/null 2>&1; then
 fi
 
 # Games whose JS version frame-games embeds. Add ids here as games come online.
-GAMES=(breakout pong invaders asteroids)
+GAMES=(breakout pong invaders asteroids pacman)
 
 for game in "${GAMES[@]}"; do
   dir="$JS_ROOT/src/games/$game"
