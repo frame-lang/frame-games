@@ -1,6 +1,16 @@
 import Phaser from "phaser";
+import { marked } from "marked";
 import { FsmPanel, liveState, type MachineView } from "./fsm-panel";
 import { GAMES, channelName, versionEntry } from "./games";
+
+// Per-game long-form articles. Vite eager-loads every games/<id>/article.md as
+// raw text at build time so the loader is sync + the article section is
+// optional — a game without an article.md just keeps the section hidden.
+const ARTICLES = import.meta.glob<string>("../games/*/article.md", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+});
 
 // Per-game live-state accessors. Display metadata (titles, blurbs, push$/pop$
 // edges, version entries) lives in games/<id>/game.json; this maps a game id
@@ -88,6 +98,7 @@ const jsStage = document.getElementById("js-stage")!;
 const godotStage = document.getElementById("godot-stage")!;
 const panelEl = document.getElementById("fsm-panel")!;
 const popoutBtn = document.getElementById("popout") as HTMLButtonElement | null;
+const articleEl = document.getElementById("article")!;
 
 const requestedId = new URLSearchParams(location.search).get("game") ?? "breakout";
 const entry = GAMES[requestedId] ?? GAMES.breakout;
@@ -158,6 +169,13 @@ async function main(): Promise<void> {
   controlsEl.textContent = manifest.controls;
   document.title = `${manifest.title} — Frame Games`;
   renderTabs("js");
+
+  // Long-form article (optional): hidden unless games/<id>/article.md exists.
+  const articleMd = ARTICLES[`../games/${manifest.id}/article.md`];
+  if (articleMd) {
+    articleEl.innerHTML = marked.parse(articleMd) as string;
+    articleEl.classList.remove("hidden");
+  }
 
   // --- JS version: machine + Phaser scene + live FSM panel ---
   const machine = def.createMachine();

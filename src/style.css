@@ -183,6 +183,73 @@ a:hover {
   padding: 14px 16px;
 }
 
+/* ---- Article (below the FSM panel) ---- */
+.article {
+  max-width: 720px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.65;
+  padding: 24px 0 8px;
+}
+.article h1 {
+  margin: 0 0 16px;
+  font-size: 26px;
+  color: var(--text);
+}
+.article h2 {
+  margin: 32px 0 12px;
+  font-size: 20px;
+  color: var(--text);
+}
+.article h3 {
+  margin: 24px 0 8px;
+  font-size: 16px;
+  color: var(--accent);
+}
+.article p,
+.article ul,
+.article ol {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+.article strong {
+  color: var(--text);
+}
+.article a {
+  color: var(--accent);
+}
+.article blockquote {
+  margin: 0 0 18px;
+  padding: 8px 16px;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  font-style: italic;
+}
+.article code {
+  background: var(--panel-2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.article pre {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0 0 18px;
+}
+.article pre code {
+  background: transparent;
+  padding: 0;
+}
+.article hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 24px 0;
+}
+
 /* ---- Pop-out FSM page (fsm.html) ---- */
 /* Fill the window with a vertical flex layout so each FSM card knows how
    tall it can be, and the chart SVG inside scales to fit both dimensions. */
