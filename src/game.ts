@@ -69,6 +69,15 @@ const STATE_ACCESSORS: Record<
       Enemy: () => liveState(sub.enemies[0]),
     };
   },
+  stealth: (m) => {
+    // Three guards run the same FSM independently; the panel tracks the
+    // first one. (guard1 / guard2 / guard3 — named fields, not an array.)
+    const sub = m as { guard1: unknown };
+    return {
+      Stealth: () => liveState(m),
+      Guard: () => liveState(sub.guard1),
+    };
+  },
 };
 
 const titleEl = document.getElementById("game-title")!;

@@ -1,0 +1,26 @@
+{
+  "id": "stealth",
+  "title": "Stealth (Guard AI)",
+  "summary": "Three guards each running an HSM-with-cluster-parent AI — Aware groups the patrol / investigate / alerted / searching modes that share spot_player handling, and push$/pop$ models 'investigate then resume' as a subroutine.",
+  "teaches": "Agent AI in Frame vs behavior trees · $Aware HSM parent shares the spot_player response · push$/pop$ investigate-then-resume · three composed Guard instances",
+  "controls": "Arrows / WASD move · reach the green exit unseen · P pause · SPACE start · R restart",
+  "machines": [
+    {
+      "system": "Stealth",
+      "title": "Stealth — the orchestrator",
+      "blurb": "Attract waits, then start advances into Playing where the player and three guards tick concurrently. The orchestrator transitions out of Playing when any guard touches the player (Caught) or the player reaches the exit (Escaped); both Caught and Escaped return to Attract on restart. Pause is push$/pop$ from Playing so resume returns exactly to the same scene state.",
+      "pushPop": [{ "from": "Playing", "to": "Paused", "pushEvent": "pause" }]
+    },
+    {
+      "system": "Guard",
+      "title": "Guard — HSM AI + investigate subroutine",
+      "blurb": "Three guards each run this same machine; the diagram tracks guard1. Idle waits for init then enters Patrolling (the default beat). Aware is the HSM parent that groups the four awake modes — Patrolling, Investigating, Alerted, Searching — so spot_player and touched_player can be handled once on the parent (transitioning out of the whole cluster to Alerted or Engaged respectively). Investigation is push$/pop$: from Patrolling, hear_sound stashes the patrol compartment and transitions to Investigating; when the investigate timer expires, pop$ returns to exactly the patrol step that was active.",
+      "pushPop": [
+        { "from": "Patrolling", "to": "Investigating", "pushEvent": "hear_sound" }
+      ]
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "JavaScript" }
+  ]
+}

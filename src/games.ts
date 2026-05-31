@@ -10,6 +10,7 @@ import { asteroids } from "../vendor/frame-arcade-js/src/games/asteroids";
 import { pacman } from "../vendor/frame-arcade-js/src/games/pacman";
 import { platformer } from "../vendor/frame-arcade-js/src/games/platformer";
 import { shooter } from "../vendor/frame-arcade-js/src/games/shooter";
+import { stealth } from "../vendor/frame-arcade-js/src/games/stealth";
 import breakoutManifest from "../games/breakout/game.json";
 import pongManifest from "../games/pong/game.json";
 import invadersManifest from "../games/invaders/game.json";
@@ -17,6 +18,7 @@ import asteroidsManifest from "../games/asteroids/game.json";
 import pacmanManifest from "../games/pacman/game.json";
 import platformerManifest from "../games/platformer/game.json";
 import shooterManifest from "../games/shooter/game.json";
+import stealthManifest from "../games/stealth/game.json";
 import type { GameDef } from "../vendor/frame-arcade-js/src/games/types";
 import type { PushPopEdge } from "./fsm-panel";
 
@@ -78,6 +80,10 @@ export const GAMES: Record<string, GameEntry> = {
   shooter: {
     def: shooter,
     manifest: shooterManifest as GameManifest,
+  },
+  stealth: {
+    def: stealth,
+    manifest: stealthManifest as GameManifest,
   },
 };
 
