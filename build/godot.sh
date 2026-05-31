@@ -1,40 +1,88 @@
 #!/usr/bin/env bash
 # ============================================================
-# build/godot.sh — export the Godot WASM build of Breakout
+# build/godot.sh — export the Godot WASM build of one (or all) games
 # ============================================================
-# Drops the Web export at games/breakout/versions/godot-wasm/
-# (index.html / .pck / .wasm / .js / .audio.worklet.js). The
-# game page's iframe loads from that path; the .pck probe in
+#   build/godot.sh <id>       # build a single game's Web export
+#   build/godot.sh all        # build every chapter
+#
+# Drops the Web export at games/<id>/versions/godot-wasm/
+# (index.html / .pck / .wasm / .js / .audio.worklet.js / …).
+# The game page's iframe loads from that path; the .pck probe in
 # game.ts confirms the build actually ran before embedding.
 #
-# Strategy: the Breakout Godot project lives under the
-# frame-arcade submodule. We don't add an export preset there
-# (would dirty the submodule), so we stage a copy under
-# build/godot-breakout/ and add the preset to that copy.
+# Strategy: each chapter's Godot project lives under the
+# frame-arcade submodule. We don't add export presets there (would
+# dirty the submodule), so we stage a copy under build/godot-<id>/
+# and add the preset + a per-game live_state_publisher autoload to
+# THAT copy.
 #
 # Pre-reqs:
 #   - godot 4.x on PATH (or set GODOT=/path/to/godot)
-#   - matching Godot export templates installed
-#   - framec on PATH (run by the chapter's own build.sh)
+#   - matching Godot export templates (Web) installed
+#   - framec on PATH (run by each chapter's own build.sh)
 # ============================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-SRC_PROJECT="$REPO_DIR/vendor/frame-arcade/ch02-breakout"
-STAGE_DIR="$REPO_DIR/build/godot-breakout"
-OUT_DIR="$REPO_DIR/games/breakout/versions/godot-wasm"
+# Per-game config. Each SYSTEMS entry is "SystemName:fsm.<path>" — the path is
+# a GDScript expression rooted at the scene's `fsm` field that yields an object
+# carrying .__compartment.state. Trailing [N] is treated as safe-indexed (the
+# generated autoload guards against an empty array, so it does the right thing
+# in attract / pre-spawn states).
+case "${1:-}" in
+    pong)        CH=ch01-pong;       SYSTEMS=("Pong:fsm") ;;
+    breakout)    CH=ch02-breakout;   SYSTEMS=("Breakout:fsm" "Ball:fsm.ball") ;;
+    invaders)    CH=ch03-invaders;   SYSTEMS=("Invaders:fsm" "Player:fsm.player" "Fleet:fsm.fleet") ;;
+    asteroids)   CH=ch04-asteroids;  SYSTEMS=("Asteroids:fsm" "Ship:fsm.ship" "AsteroidField:fsm.field") ;;
+    pacman)      CH=ch05-pacman;     SYSTEMS=("GhostGame:fsm" "Ghost:fsm.ghosts[0]" "GhostPen:fsm.pen") ;;
+    platformer)  CH=ch06-platformer; SYSTEMS=("Platformer:fsm" "Locomotion:fsm.loco" "PowerUp:fsm.power") ;;
+    shooter)     CH=ch07-shooter;    SYSTEMS=("Shooter:fsm" "Player:fsm.player" "Boss:fsm.boss" "Enemy:fsm.enemies[0]") ;;
+    stealth)     CH=ch08-stealth;    SYSTEMS=("Stealth:fsm" "Guard:fsm.guard1") ;;
+    all)
+        # Build each game in turn. Skip a failure and continue with the rest;
+        # the summary at the end shows which produced an index.pck.
+        for g in pong breakout invaders asteroids pacman platformer shooter stealth; do
+            bash "$0" "$g" || echo "  ! $g failed; continuing"
+        done
+        echo
+        echo "=========================================================="
+        echo "==> summary"
+        for g in pong breakout invaders asteroids pacman platformer shooter stealth; do
+            if [[ -f "$REPO_DIR/games/$g/versions/godot-wasm/index.pck" ]]; then
+                printf "    ok   %s\n" "$g"
+            else
+                printf "    MISS %s\n" "$g"
+            fi
+        done
+        exit 0
+        ;;
+    *)
+        echo "usage: build/godot.sh <id|all>"
+        echo "  ids: pong breakout invaders asteroids pacman platformer shooter stealth"
+        exit 1
+        ;;
+esac
+
+GAME="$1"
+SRC_PROJECT="$REPO_DIR/vendor/frame-arcade/$CH"
+STAGE_DIR="$REPO_DIR/build/godot-$GAME"
+OUT_DIR="$REPO_DIR/games/$GAME/versions/godot-wasm"
 
 GODOT_BIN="${GODOT:-godot}"
 if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
     echo "error: '$GODOT_BIN' not found"
     echo "set GODOT env var to the binary path, e.g.:"
-    echo "  GODOT=/usr/local/bin/godot npm run build:godot"
+    echo "  GODOT=/usr/local/bin/godot npm run build:godot $GAME"
     exit 1
 fi
 
-echo "==> regenerate breakout.gd from Frame source"
+echo "=========================================================="
+echo "==> $GAME ($CH)"
+echo "=========================================================="
+
+echo "==> regenerate .gd from Frame source"
 ( cd "$SRC_PROJECT" && bash build.sh )
 
 echo "==> stage Godot project at $STAGE_DIR"
@@ -42,18 +90,22 @@ rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
 cp -R "$SRC_PROJECT/godot/." "$STAGE_DIR/"
 
-echo "==> inject live FSM state publisher (BroadcastChannel autoload)"
-# Posts the Breakout/Ball state to the same BroadcastChannel the JS version
-# uses, so the frame-games FSM popout highlights live states when you play
-# the Godot (WASM) tab. Web-only — non-web exports are no-ops.
-cat > "$STAGE_DIR/scripts/live_state_publisher.gd" <<'EOF'
+echo "==> inject live_state_publisher.gd"
+# The autoload posts a per-game state snapshot onto the BroadcastChannel that
+# frame-games's FSM popout listens on (channelName(id) in src/games.ts). Each
+# system in SYSTEMS becomes a read into a local var, then a snapshot field.
+# Safe-array-indexed paths emit `if arr.size() > N` so attract / pre-spawn
+# states don't crash.
+PUB="$STAGE_DIR/scripts/live_state_publisher.gd"
+{
+    cat <<EOF
 # Auto-injected by frame-games/build/godot.sh — do not edit by hand.
-# Reads the Breakout FSM's current Frame compartment state every frame and
-# pushes a { Breakout, Ball } snapshot onto a BroadcastChannel that
-# frame-games's FSM popout (fsm.html) listens on.
+# Reads each FSM's current Frame compartment state and pushes a snapshot
+# onto a BroadcastChannel that frame-games's FSM popout (fsm.html) listens
+# on. Web-only — non-web exports are no-ops.
 extends Node
 
-const CHANNEL_NAME := "frame-games:state:breakout"
+const CHANNEL_NAME := "frame-games:state:${GAME}"
 
 var _channel: JavaScriptObject = null
 var _on_message_ref: JavaScriptObject = null
@@ -83,24 +135,44 @@ func _publish(force: bool) -> void:
     var fsm = scene.get("fsm")
     if fsm == null:
         return
-    var bk: String = fsm.__compartment.state
-    var ball: String = fsm.ball.__compartment.state
-    var sig := bk + "|" + ball
+EOF
+    for sys in "${SYSTEMS[@]}"; do
+        name="${sys%%:*}"
+        expr="${sys##*:}"
+        if [[ "$expr" =~ ^(.*)\[([0-9]+)\]$ ]]; then
+            arr="${BASH_REMATCH[1]}"
+            idx="${BASH_REMATCH[2]}"
+            cat <<EOF
+    var v_$name := ""
+    if $arr != null and $arr.size() > $idx:
+        v_$name = String($expr.__compartment.state)
+EOF
+        else
+            cat <<EOF
+    var v_$name := String($expr.__compartment.state)
+EOF
+        fi
+    done
+    echo '    var sig := ""'
+    for sys in "${SYSTEMS[@]}"; do
+        name="${sys%%:*}"
+        echo "    sig += v_$name + \"|\""
+    done
+    cat <<EOF
     if not force and sig == _last_sig:
         return
     _last_sig = sig
     var snapshot := JavaScriptBridge.create_object("Object")
-    snapshot.Breakout = bk
-    snapshot.Ball = ball
-    _channel.postMessage(snapshot)
 EOF
+    for sys in "${SYSTEMS[@]}"; do
+        name="${sys%%:*}"
+        echo "    snapshot.$name = v_$name"
+    done
+    echo "    _channel.postMessage(snapshot)"
+} > "$PUB"
 
-echo "==> register live_state_publisher as autoload in project.godot"
-# Append (or replace) the [autoload] section. The original project.godot
-# doesn't have one, so a simple append is safe; if a future submodule change
-# adds an autoload section we'd need to merge instead.
+echo "==> register live_state_publisher as autoload"
 if grep -q "^\[autoload\]" "$STAGE_DIR/project.godot"; then
-    echo "warning: project.godot already has [autoload] — appending entry, but you may want to merge by hand"
     printf '\nLiveStatePublisher="*res://scripts/live_state_publisher.gd"\n' >> "$STAGE_DIR/project.godot"
 else
     cat >> "$STAGE_DIR/project.godot" <<'EOF'
@@ -157,25 +229,20 @@ progressive_web_app/icon_512x512=""
 progressive_web_app/background_color=Color(0, 0, 0, 1)
 EOF
 
-echo "==> godot export → $OUT_DIR"
+echo "==> godot export -> $OUT_DIR"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 # `--editor --headless --quit` once on a fresh project so Godot imports the
-# resources (.tscn → .remap, etc.) before the headless export tries to read
+# resources (.tscn -> .remap, etc.) before the headless export tries to read
 # them. Without this first pass the exporter fails with "No main scene".
 "$GODOT_BIN" --headless --path "$STAGE_DIR" --editor --quit >/dev/null 2>&1 || true
 "$GODOT_BIN" --headless --path "$STAGE_DIR" \
     --export-release "Web" "$OUT_DIR/index.html"
 
 if [[ ! -f "$OUT_DIR/index.pck" ]]; then
-    echo "error: export ran but no index.pck produced"
+    echo "error: export ran but no index.pck produced for $GAME"
     echo "check that Godot export templates (Web) are installed and match the editor version"
     exit 1
 fi
 
-echo
-echo "==> built artifacts in $OUT_DIR:"
-ls -lh "$OUT_DIR"
-echo
-echo "    Open the game page, switch to the Godot (WASM) tab — the iframe"
-echo "    will now load this build instead of falling back to a note."
+echo "==> built $GAME ($(du -sh "$OUT_DIR" | cut -f1))"

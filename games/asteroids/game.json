@@ -28,6 +28,7 @@
     }
   ],
   "versions": [
-    { "id": "js", "label": "JavaScript" }
+    { "id": "js", "label": "JavaScript" },
+    { "id": "godot-wasm", "label": "Godot (WASM)", "entry": "/games/asteroids/versions/godot-wasm/index.html" }
   ]
 }

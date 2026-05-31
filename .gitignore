@@ -7,5 +7,5 @@ dist/
 # (Godot HTML5/WASM exports land here; the JS version is imported live from the submodule.)
 games/*/versions/godot-wasm/
 
-# Scratch copy of the Godot project used during the Web export (build/godot.sh).
-build/godot-breakout/
+# Scratch copies of Godot projects used during the Web exports (build/godot.sh).
+build/godot-*/

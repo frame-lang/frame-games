@@ -31,6 +31,7 @@
     }
   ],
   "versions": [
-    { "id": "js", "label": "JavaScript" }
+    { "id": "js", "label": "JavaScript" },
+    { "id": "godot-wasm", "label": "Godot (WASM)", "entry": "/games/shooter/versions/godot-wasm/index.html" }
   ]
 }
