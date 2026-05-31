@@ -30,6 +30,14 @@ const STATE_ACCESSORS: Record<
       Fleet: () => liveState(sub.fleet),
     };
   },
+  asteroids: (m) => {
+    const sub = m as { ship: unknown; field: unknown };
+    return {
+      Asteroids: () => liveState(m),
+      Ship: () => liveState(sub.ship),
+      AsteroidField: () => liveState(sub.field),
+    };
+  },
 };
 
 const titleEl = document.getElementById("game-title")!;

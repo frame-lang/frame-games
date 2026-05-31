@@ -67,11 +67,15 @@ export function annotatePushPop(dot: string, edges: readonly PushPopEdge[]): str
     /Stack\[shape="circle" label="H\*"/,
     `Stack[shape="circle" label="↩ ${fromStates.join(" / ")}"`,
   );
-  // Inject a dashed forward edge per declared push so the push$ path is visible.
+  // Inject a dashed forward edge per declared push so the push$ path is
+  // visible — UNLESS Frame already drew it. Inline `push$ -> $X` syntax is
+  // silent in graphviz; the split form (`push$` then `-> $X` on its own line)
+  // is drawn as a normal edge, and an injected dashed one would duplicate it.
   const inserts = edges
+    .filter((e) => !new RegExp(`${e.from}\\s*->\\s*${e.to}\\b`).test(result))
     .map((e) => `    ${e.from} -> ${e.to} [label=" ${e.pushEvent} (push$) " style="dashed"]`)
     .join("\n");
-  result = result.replace(/\}\s*$/, inserts + "\n}");
+  if (inserts) result = result.replace(/\}\s*$/, inserts + "\n}");
   return result;
 }
 

@@ -1,0 +1,33 @@
+{
+  "id": "asteroids",
+  "title": "Asteroids",
+  "summary": "Two push$/pop$ patterns at different scales — a Ship subroutine (Alive → Hyperspace → back) and a top-level pause, plus HSM inheritance for the in-game children.",
+  "teaches": "State stack (push$ / pop$) — hyperspace pushes the compartment and pops back to it",
+  "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause",
+  "machines": [
+    {
+      "system": "Asteroids",
+      "title": "Asteroids — the orchestrator",
+      "blurb": "Top-level controller, parameterized by a starting difficulty. Attract zeroes the game, then start advances into the $InGame parent which holds Playing (the rally), ShipDying (the brief stun after the ship explodes), and WaveClear (between waves). Because pause() is handled on the $InGame parent, every child inherits it — push$ stashes the current child and transitions to Paused; resume pops back to whichever was active.",
+      "pushPop": [
+        { "from": "Playing", "to": "Paused", "pushEvent": "pause" },
+        { "from": "ShipDying", "to": "Paused", "pushEvent": "pause" },
+        { "from": "WaveClear", "to": "Paused", "pushEvent": "pause" }
+      ]
+    },
+    {
+      "system": "Ship",
+      "title": "Ship — push$/pop$ as a subroutine",
+      "blurb": "The ship's modes: Alive (steerable, can shoot, can be hit), InHyperspace (the 0.4s blink-out — invulnerable, invisible), Exploding (the death animation), Respawning (a brief grace window after respawn), Dead (out of lives). Hyperspace is the showcase: from Alive, push$ stashes the compartment then transitions to InHyperspace; when InHyperspace's timer expires, pop$ returns to exactly the prior compartment — a fully reusable subroutine that can be invoked from anywhere.",
+      "pushPop": [{ "from": "Alive", "to": "InHyperspace", "pushEvent": "hyperspace" }]
+    },
+    {
+      "system": "AsteroidField",
+      "title": "AsteroidField",
+      "blurb": "Single-state system that owns the asteroid list (positions, velocities, sizes) and exposes spawn_wave / advance / hit. The orchestrator routes split / kill events here; the field decides what they mean to the rock cloud."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "JavaScript" }
+  ]
+}

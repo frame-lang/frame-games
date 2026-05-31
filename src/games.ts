@@ -6,9 +6,11 @@
 import { breakout } from "../vendor/frame-arcade-js/src/games/breakout";
 import { pong } from "../vendor/frame-arcade-js/src/games/pong";
 import { invaders } from "../vendor/frame-arcade-js/src/games/invaders";
+import { asteroids } from "../vendor/frame-arcade-js/src/games/asteroids";
 import breakoutManifest from "../games/breakout/game.json";
 import pongManifest from "../games/pong/game.json";
 import invadersManifest from "../games/invaders/game.json";
+import asteroidsManifest from "../games/asteroids/game.json";
 import type { GameDef } from "../vendor/frame-arcade-js/src/games/types";
 import type { PushPopEdge } from "./fsm-panel";
 
@@ -54,6 +56,10 @@ export const GAMES: Record<string, GameEntry> = {
   invaders: {
     def: invaders,
     manifest: invadersManifest as GameManifest,
+  },
+  asteroids: {
+    def: asteroids,
+    manifest: asteroidsManifest as GameManifest,
   },
 };
 
