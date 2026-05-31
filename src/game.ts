@@ -57,6 +57,18 @@ const STATE_ACCESSORS: Record<
       PowerUp: () => liveState(sub.power),
     };
   },
+  shooter: (m) => {
+    // Many enemies run concurrently and are spawned dynamically — the panel
+    // tracks the first one. enemies[] is empty in Attract; null falls through
+    // to no highlight, which is correct (no enemy live in that phase).
+    const sub = m as { player: unknown; boss: unknown; enemies: unknown[] };
+    return {
+      Shooter: () => liveState(m),
+      Player: () => liveState(sub.player),
+      Boss: () => liveState(sub.boss),
+      Enemy: () => liveState(sub.enemies[0]),
+    };
+  },
 };
 
 const titleEl = document.getElementById("game-title")!;

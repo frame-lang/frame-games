@@ -1,0 +1,36 @@
+{
+  "id": "shooter",
+  "title": "Shooter (capstone)",
+  "summary": "The capstone — four composed machines at scale: an orchestrator with waves + a boss fight, a player, parameterized enemies, and a three-phase HSM boss whose phase clusters change on HP thresholds.",
+  "teaches": "Everything composed at scale · parameterized Enemy instances · three-phase Boss HSM (HP-threshold phase changes) · orchestrator with waves + push$/pop$ pause",
+  "controls": "Arrows/WASD move · hold SPACE fire · P pause · SPACE start · R restart",
+  "machines": [
+    {
+      "system": "Shooter",
+      "title": "Shooter — the orchestrator",
+      "blurb": "Attract waits, then start advances into Playing (the wave grinder); when the last wave clears the orchestrator transitions to BossFight; on the boss going down it lands in Victory, and on the player running out of lives it falls into GameOver. Pause is push$/pop$ from either Playing or BossFight so resume returns to the exact phase you were in.",
+      "pushPop": [
+        { "from": "Playing", "to": "Paused", "pushEvent": "pause" },
+        { "from": "BossFight", "to": "Paused", "pushEvent": "pause" }
+      ]
+    },
+    {
+      "system": "Player",
+      "title": "Player",
+      "blurb": "Alive (steerable, can shoot), Exploding (death animation), Invulnerable (the brief grace window after respawn), Dead (out of lives). The orchestrator routes hits and respawns; the Player machine decides what's valid in each mode."
+    },
+    {
+      "system": "Boss",
+      "title": "Boss — three-phase HSM at HP thresholds",
+      "blurb": "Three cluster parents — PhaseOne, PhaseTwo, PhaseThree — each containing an Idle and an attack child (P1Firing / P2Spread / P3Spray) running on a tick toggle. The `hit` handler lives on each phase parent: when the boss's HP crosses a threshold inside a phase, the cluster transition leaves the whole phase and enters the next one's Idle child. After PhaseThree the boss exits to Dying then Gone."
+    },
+    {
+      "system": "Enemy",
+      "title": "Enemy — parameterized instances",
+      "blurb": "Spawning (the entry sweep, no fire yet), Active (in the rally — can fire on its own fire_rate), Dying (the brief explosion), Gone (eligible for cleanup). Each enemy instance is parameterized at construction (kind, hp, fire_rate, points), and many run concurrently; the diagram tracks the first one in the orchestrator's enemy list."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "JavaScript" }
+  ]
+}
