@@ -1,0 +1,48 @@
+@@[target("javascript")]
+
+// PageController — Frame state machine that manages which game version
+// (JS or Godot WASM) is mounted on the showcase page. Two states, two
+// events. The host parameter is an object the entry/exit handlers call
+// to actually mount and tear down each runtime — that way the page
+// state-transition logic lives in Frame, not in ad-hoc DOM toggling.
+//
+// On entry into $JavaScript the host re-enables Phaser keyboard input
+// and resumes the scene; on exit it pauses + disables the keyboard so
+// SPACE/arrows stop firing into the canvas. On entry into $Godot the
+// host shows the Godot stage and (re)creates the iframe; on exit it
+// destroys the iframe so the WASM is freed.
+//
+// Initial state is $JavaScript — the page boots with JS visible, and
+// the $>() handler fires once to align the host (keyboard enabled,
+// Godot stage hidden, JS stage shown).
+@@system PageController(host: any) {
+
+    operations:
+        current_state(): string { @@:(@@:system.state) }
+
+    interface:
+        switch_to_js()
+        switch_to_godot()
+
+    machine:
+        $JavaScript {
+            $>() { this.host.show_js() }
+            <$() { this.host.hide_js() }
+
+            switch_to_godot() {
+                -> $Godot
+            }
+        }
+
+        $Godot {
+            $>() { this.host.show_godot() }
+            <$() { this.host.hide_godot() }
+
+            switch_to_js() {
+                -> $JavaScript
+            }
+        }
+
+    domain:
+        host: any = host
+}

@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { marked } from "marked";
 import { FsmPanel, liveState, splitFrameSystems, type MachineView } from "./fsm-panel";
 import { GAMES, channelName, versionEntry } from "./games";
+import { PageController } from "./page.machine.js";
 
 // Per-game long-form articles. Vite eager-loads every games/<id>/article.md as
 // raw text at build time so the loader is sync + the article section is
@@ -113,6 +114,14 @@ const accessorsFor = STATE_ACCESSORS[requestedId] ?? STATE_ACCESSORS.breakout;
 
 let godotLoaded = false;
 
+// The PageController Frame machine (src/page.fjs) drives every tab change.
+// It owns two states ($JavaScript / $Godot); the host object's show_*/hide_*
+// methods are called from the state's $>() / <$() handlers to actually
+// mount and tear down each runtime. ctrl is created after Phaser is ready
+// so the initial $JavaScript.$>() handler has a working game instance.
+type PageCtrl = { switch_to_js: () => void; switch_to_godot: () => void };
+let ctrl: PageCtrl | null = null;
+
 function renderTabs(active: string): void {
   tabsEl.replaceChildren(
     ...manifest.versions.map((v) => {
@@ -120,17 +129,17 @@ function renderTabs(active: string): void {
       b.textContent = v.label;
       b.className = "tab" + (v.id === active ? " active" : "");
       b.dataset.v = v.id;
-      b.onclick = () => showVersion(v.id);
+      b.onclick = () => switchVersion(v.id);
       return b;
     }),
   );
 }
 
-function showVersion(id: string): void {
-  jsStage.classList.toggle("hidden", id !== "js");
-  godotStage.classList.toggle("hidden", id !== "godot-wasm");
+function switchVersion(id: string): void {
+  if (!ctrl) return; // page controller not ready yet
+  if (id === "js") ctrl.switch_to_js();
+  else if (id === "godot-wasm") ctrl.switch_to_godot();
   renderTabs(id);
-  if (id === "godot-wasm" && !godotLoaded) void loadGodot();
 }
 
 function godotNote(msg: string): void {
@@ -165,6 +174,10 @@ async function loadGodot(): Promise<void> {
   frame.src = src;
   frame.className = "godot-frame";
   frame.title = `${manifest.title} — Godot (WASM)`;
+  // Pull focus into the iframe once Godot's HTML loads so keyboard events
+  // route to the WASM canvas (otherwise SPACE/arrows might stay on the
+  // outer page and never reach Godot).
+  frame.addEventListener("load", () => frame.focus());
   godotStage.replaceChildren(frame);
 }
 
@@ -227,6 +240,39 @@ async function main(): Promise<void> {
   // event.defaultPrevented, and the canvas would receive nothing.
   game.events.once("ready", () => {
     game.input.keyboard?.addCapture(["SPACE", "UP", "DOWN", "LEFT", "RIGHT"]);
+
+    // Wire the PageController. The state's $>() / <$() handlers call into
+    // this host to actually mount / tear down each runtime — pause Phaser
+    // + disable its keyboard when leaving JS (so SPACE/arrows reach the
+    // Godot iframe), destroy the iframe when leaving Godot (frees WASM
+    // and avoids the running game capturing focus). The initial state is
+    // $JavaScript, so show_js() fires once on create — its actions are
+    // no-ops since the JS stage is already visible + the loop already
+    // awake on page load.
+    const host = {
+      show_js() {
+        jsStage.classList.remove("hidden");
+        godotStage.classList.add("hidden");
+        if (game.input.keyboard) game.input.keyboard.enabled = true;
+        game.loop.wake();
+      },
+      hide_js() {
+        jsStage.classList.add("hidden");
+        if (game.input.keyboard) game.input.keyboard.enabled = false;
+        game.loop.sleep();
+      },
+      show_godot() {
+        godotStage.classList.remove("hidden");
+        jsStage.classList.add("hidden");
+        if (!godotLoaded) void loadGodot();
+      },
+      hide_godot() {
+        godotStage.classList.add("hidden");
+        godotStage.replaceChildren(); // destroy the iframe → free WASM
+        godotLoaded = false;
+      },
+    };
+    ctrl = PageController._create(host);
   });
 
   // --- BroadcastChannel: publish state snapshots for the pop-out FSM viewer.

@@ -22,3 +22,10 @@ for game in "${GAMES[@]}"; do
   framec -l graphviz   "$dir/$game.fjs" > "$dir/$game.dot"
   echo "generated: $game (machine.js + dot)"
 done
+
+# Showcase's own controller — the Frame machine that decides which game
+# version (JS / Godot WASM) is mounted on the page. Treats the page itself
+# as a state machine, dog-fooding the same Frame compiler.
+framec -l javascript src/page.fjs > src/page.machine.js
+framec -l graphviz   src/page.fjs > src/page.dot
+echo "generated: page (machine.js + dot)"
