@@ -49,10 +49,13 @@ export function compactStateLabels(dot: string): string {
 // HSM parent states are emitted as `subgraph cluster_<Parent> { label = <html> … }`
 // in Frame's graphviz output, with the same heavy method-list table as nodes
 // use. Collapse it to a plain quoted parent name so the cluster reads cleanly
-// as a box around its children.
+// as a box around its children. The HTML label itself contains <…> tags
+// (<table>, <tr>, <td>, <br/>), so we anchor the end on `</table>\s*>` rather
+// than the first stray `>` — otherwise the match stops inside the opening
+// <table> tag and leaves a malformed dot fragment that breaks viz-js.
 export function compactClusterLabels(dot: string): string {
   return dot.replace(
-    /(subgraph\s+cluster_(\w+)\s*\{\s*)label\s*=\s*<[\s\S]*?>/g,
+    /(subgraph\s+cluster_(\w+)\s*\{\s*)label\s*=\s*<[\s\S]*?<\/table>\s*>/g,
     (_match, prefix, name) => `${prefix}label = "${name}"`,
   );
 }
