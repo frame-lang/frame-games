@@ -118,13 +118,44 @@ a:hover {
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
-  /* Width is the smallest of: the container, a 900px hard cap, or 70vh *
-     (720/480) so the stage never grows taller than 70vh on tall displays.
-     The aspect-ratio derives height; margin-inline auto centers when the
-     stage is narrower than the column. */
-  width: min(100%, 900px, calc(70vh * 1.5));
+  /* Width derives from a CSS variable for height (--play-h), so the resize
+     handle can shrink/grow the stage by mutating just that one property.
+     Width is then min(container, --play-h * 720/480) — the container cap
+     keeps the stage in the column on mobile; the aspect-ratio derives the
+     final height back from the chosen width. */
+  --play-h: min(60vh, 600px);
+  width: min(100%, calc(var(--play-h) * 1.5));
   aspect-ratio: 720 / 480;
   margin-inline: auto;
+}
+
+/* Drag handle that sits at the bottom of the sticky .play column. Pull up
+   to shrink the game, pull down to grow it. Updates --play-h directly;
+   ResizeObserver on the stage triggers Phaser.scale.refresh() so the
+   canvas refits as it goes. */
+.resize-handle {
+  height: 14px;
+  margin: 4px 0 -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+.resize-grip {
+  width: 64px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  transition: background 0.15s, transform 0.15s;
+}
+.resize-handle:hover .resize-grip,
+.resize-handle.dragging .resize-grip {
+  background: var(--accent);
+}
+.resize-handle.dragging .resize-grip {
+  transform: scaleX(1.2);
 }
 .stage {
   width: 100%;

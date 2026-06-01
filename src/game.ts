@@ -261,6 +261,43 @@ async function main(): Promise<void> {
   };
   tick();
 
+  // --- Resize handle: drag the grip up to shrink the game, down to grow it.
+  // The CSS uses `--play-h` to derive width (with aspect-ratio deriving the
+  // final height); a ResizeObserver on the stage triggers Phaser to refit
+  // its canvas continuously as the drag progresses.
+  const handle = document.getElementById("resize-handle");
+  const playStage = document.querySelector(".play-stage") as HTMLElement | null;
+  if (handle && playStage) {
+    let dragging = false;
+    let startY = 0;
+    let startH = 0;
+    const MIN_H = 180;
+    const MAX_H = 900;
+    handle.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      startY = e.clientY;
+      startH = playStage.offsetHeight;
+      handle.classList.add("dragging");
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dy = e.clientY - startY;
+      const newH = Math.max(MIN_H, Math.min(MAX_H, startH + dy));
+      playStage.style.setProperty("--play-h", `${newH}px`);
+    });
+    const endDrag = (): void => {
+      dragging = false;
+      handle.classList.remove("dragging");
+    };
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", endDrag);
+    // Refit Phaser's canvas whenever the stage's box changes (drag, window
+    // resize, devicePixelRatio change, etc).
+    new ResizeObserver(() => game.scale.refresh()).observe(playStage);
+  }
+
   // --- Pop-out button: opens fsm.html in a named window (reuses if already open).
   if (popoutBtn) {
     popoutBtn.onclick = () => {
