@@ -76,6 +76,19 @@ a:hover {
   }
 }
 
+/* Sticky play column: the canvas + version tabs + controls hint stay
+   pinned at the top of the viewport while the FSM panel + article scroll
+   below them. Per-card Frame source still scrolls independently inside
+   each card. */
+.play {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  padding-top: 8px;
+  padding-bottom: 14px;
+}
+
 /* ---- play column ---- */
 .version-tabs {
   display: flex;
