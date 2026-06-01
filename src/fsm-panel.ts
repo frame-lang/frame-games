@@ -180,16 +180,11 @@ export class FsmPanel {
 
       if (this.reorderable) card.appendChild(this.buildMoveBar(card));
 
+      // Card heading is just the system name — explanations live in the
+      // article below, not duplicated in the card.
       const h = document.createElement("h3");
-      h.textContent = view.title ?? view.system;
+      h.textContent = view.system;
       card.appendChild(h);
-
-      if (view.blurb) {
-        const p = document.createElement("p");
-        p.className = "fsm-blurb";
-        p.textContent = view.blurb;
-        card.appendChild(p);
-      }
 
       const chartEl = document.createElement("div");
       chartEl.className = "fsm-chart";
