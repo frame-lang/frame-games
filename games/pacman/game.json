@@ -21,11 +21,6 @@
       "pushPop": [
         { "from": "OutOfPen", "to": "Frightened", "pushEvent": "power_pellet_eaten" }
       ]
-    },
-    {
-      "system": "GhostPen",
-      "title": "GhostPen",
-      "blurb": "The home cage. Single-state system that owns the release schedule and pen reset; the orchestrator routes release / arrival events here, and individual ghosts move InPen ⇄ OutOfPen ⇄ Eaten in response."
     }
   ],
   "versions": [

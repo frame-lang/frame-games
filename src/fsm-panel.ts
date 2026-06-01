@@ -76,10 +76,17 @@ export function annotatePushPop(dot: string, edges: readonly PushPopEdge[]): str
   if (edges.length === 0) return dot;
   let result = dot;
   const fromStates = Array.from(new Set(edges.map((e) => e.from)));
-  // Relabel Stack with the state(s) the resume edge pops back to.
+  // Relabel Stack with the state(s) the resume edge pops back to. For a single
+  // source state, keep it inline ("↩ Playing"). For multiple, stack them
+  // vertically with a `|` gutter so the node stays narrow — joining with " / "
+  // ballooned the circle when there were three source states.
+  const stackLabel =
+    fromStates.length === 1
+      ? `↩ ${fromStates[0]}`
+      : `↩\\n${fromStates.map((s) => `| ${s}`).join("\\n")}`;
   result = result.replace(
     /Stack\[shape="circle" label="H\*"/,
-    `Stack[shape="circle" label="↩ ${fromStates.join(" / ")}"`,
+    `Stack[shape="circle" label="${stackLabel}"`,
   );
   // Inject a dashed forward edge per declared push so the push$ path is
   // visible — UNLESS Frame already drew it. Inline `push$ -> $X` syntax is

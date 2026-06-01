@@ -183,6 +183,36 @@ a:hover {
   padding: 14px 16px;
 }
 
+/* ---- Frame source (below the FSM panel) ---- */
+.frame-source {
+  max-width: 100%;
+}
+.frame-source h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.frame-source .source-intro {
+  margin: 0 0 12px;
+  color: var(--dim);
+  font-size: 13px;
+}
+.frame-source pre {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow: auto;
+  max-height: 520px;
+  margin: 0;
+}
+.frame-source code {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Fira Code", monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre;
+}
+
 /* ---- Article (below the FSM panel) ---- */
 .article {
   max-width: 720px;
@@ -356,12 +386,20 @@ body.fsm-page-body {
   font-size: 12.5px;
   line-height: 1.5;
 }
+/* Uniform-height chart slot so all the FSM cards line up. The SVG scales
+   down to fit (preserving aspect ratio); diagrams letterbox top/bottom or
+   left/right as their natural shape dictates. */
 .fsm-chart {
   width: 100%;
-  min-height: 80px;
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .fsm-chart svg {
   max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
 }
 

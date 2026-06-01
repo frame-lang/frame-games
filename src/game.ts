@@ -12,6 +12,13 @@ const ARTICLES = import.meta.glob<string>("../games/*/article.md", {
   import: "default",
 });
 
+// Per-game Frame source (.fjs from the submodule), rendered below the FSM
+// panel so readers can see the controller that produced those diagrams.
+const FRAME_SOURCES = import.meta.glob<string>(
+  "../vendor/frame-arcade-js/src/games/*/*.fjs",
+  { eager: true, query: "?raw", import: "default" },
+);
+
 // Per-game live-state accessors. Display metadata (titles, blurbs, push$/pop$
 // edges, version entries) lives in games/<id>/game.json; this maps a game id
 // to a function that, given the top-level machine instance, returns a getter
@@ -41,22 +48,20 @@ const STATE_ACCESSORS: Record<
     };
   },
   asteroids: (m) => {
-    const sub = m as { ship: unknown; field: unknown };
+    const sub = m as { ship: unknown };
     return {
       Asteroids: () => liveState(m),
       Ship: () => liveState(sub.ship),
-      AsteroidField: () => liveState(sub.field),
     };
   },
   pacman: (m) => {
     // Four ghosts run the same FSM; the panel visualizes the first one (the
     // others are state-equivalent for diagram purposes, just differently
     // parameterized — Blinky / Pinky / Inky / Clyde).
-    const sub = m as { ghosts: unknown[]; pen: unknown };
+    const sub = m as { ghosts: unknown[] };
     return {
       GhostGame: () => liveState(m),
       Ghost: () => liveState(sub.ghosts[0]),
-      GhostPen: () => liveState(sub.pen),
     };
   },
   platformer: (m) => {
@@ -175,6 +180,13 @@ async function main(): Promise<void> {
   if (articleMd) {
     articleEl.innerHTML = marked.parse(articleMd) as string;
     articleEl.classList.remove("hidden");
+  }
+
+  // Frame source — show the .fjs that produced this game's machines.
+  const fjs = FRAME_SOURCES[`../vendor/frame-arcade-js/src/games/${manifest.id}/${manifest.id}.fjs`];
+  if (fjs) {
+    document.getElementById("frame-source-code")!.textContent = fjs;
+    document.getElementById("frame-source")!.classList.remove("hidden");
   }
 
   // --- JS version: machine + Phaser scene + live FSM panel ---

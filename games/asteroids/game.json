@@ -18,13 +18,7 @@
     {
       "system": "Ship",
       "title": "Ship — push$/pop$ as a subroutine",
-      "blurb": "The ship's modes: Alive (steerable, can shoot, can be hit), InHyperspace (the 0.4s blink-out — invulnerable, invisible), Exploding (the death animation), Respawning (a brief grace window after respawn), Dead (out of lives). Hyperspace is the showcase: from Alive, push$ stashes the compartment then transitions to InHyperspace; when InHyperspace's timer expires, pop$ returns to exactly the prior compartment — a fully reusable subroutine that can be invoked from anywhere.",
-      "pushPop": [{ "from": "Alive", "to": "InHyperspace", "pushEvent": "hyperspace" }]
-    },
-    {
-      "system": "AsteroidField",
-      "title": "AsteroidField",
-      "blurb": "Single-state system that owns the asteroid list (positions, velocities, sizes) and exposes spawn_wave / advance / hit. The orchestrator routes split / kill events here; the field decides what they mean to the rock cloud."
+      "blurb": "The ship's modes: Alive (steerable, can shoot, can be hit), InHyperspace (the 0.4s blink-out — invulnerable, invisible), Exploding (the death animation), Respawning (a brief grace window after respawn), Dead (out of lives). Hyperspace is the showcase: from Alive, push$ stashes the compartment then transitions to InHyperspace; when InHyperspace's timer expires, pop$ returns to exactly the prior compartment — a fully reusable subroutine that can be invoked from anywhere."
     }
   ],
   "versions": [
