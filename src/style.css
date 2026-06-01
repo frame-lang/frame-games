@@ -105,9 +105,13 @@ a:hover {
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
-  width: 100%;
-  max-width: 1200px;
+  /* Width is the smallest of: the container, a 900px hard cap, or 70vh *
+     (720/480) so the stage never grows taller than 70vh on tall displays.
+     The aspect-ratio derives height; margin-inline auto centers when the
+     stage is narrower than the column. */
+  width: min(100%, 900px, calc(70vh * 1.5));
   aspect-ratio: 720 / 480;
+  margin-inline: auto;
 }
 .stage {
   width: 100%;
