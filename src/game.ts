@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { marked } from "marked";
-import { FsmPanel, liveState, type MachineView } from "./fsm-panel";
+import { FsmPanel, liveState, splitFrameSystems, type MachineView } from "./fsm-panel";
 import { GAMES, channelName, versionEntry } from "./games";
 
 // Per-game long-form articles. Vite eager-loads every games/<id>/article.md as
@@ -182,21 +182,22 @@ async function main(): Promise<void> {
     articleEl.classList.remove("hidden");
   }
 
-  // Frame source — show the .fjs that produced this game's machines.
-  const fjs = FRAME_SOURCES[`../vendor/frame-arcade-js/src/games/${manifest.id}/${manifest.id}.fjs`];
-  if (fjs) {
-    document.getElementById("frame-source-code")!.textContent = fjs;
-    document.getElementById("frame-source")!.classList.remove("hidden");
-  }
 
   // --- JS version: machine + Phaser scene + live FSM panel ---
   const machine = def.createMachine();
   const accessors = accessorsFor(machine);
 
+  // Per-system Frame source: split the .fjs once, look up by system name.
+  const fjs = FRAME_SOURCES[`../vendor/frame-arcade-js/src/games/${manifest.id}/${manifest.id}.fjs`];
+  const sourceBySystem = new Map(
+    (fjs ? splitFrameSystems(fjs) : []).map((s) => [s.system, s.source]),
+  );
+
   // Compose live MachineViews from the manifest metadata + the runtime accessors.
   const views: MachineView[] = manifest.machines.map((m) => ({
     ...m,
     getState: accessors[m.system],
+    source: sourceBySystem.get(m.system),
   }));
 
   const panel = new FsmPanel(panelEl);
@@ -208,6 +209,13 @@ async function main(): Promise<void> {
     width: def.width ?? 720,
     height: def.height ?? 480,
     backgroundColor: "#0b0e14",
+    // FIT scales the canvas to fill the parent while preserving aspect ratio —
+    // the game keeps its logical 720x480 coordinate system internally, so
+    // game code doesn't need to change for different display sizes.
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
     scene: new def.Scene(machine),
   });
 

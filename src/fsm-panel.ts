@@ -11,6 +11,39 @@ export interface SystemDot {
   dot: string; // a standalone single-digraph DOT source
 }
 
+// Split a Frame source file into its per-system source blocks. Each entry is
+// the @@system block (with the optional @@[main] annotation if present
+// immediately above) — handy for showing the Frame snippet alongside the
+// diagram for a particular system, instead of the whole file in one dump.
+export interface SystemSource {
+  system: string;
+  source: string;
+}
+export function splitFrameSystems(fjs: string): SystemSource[] {
+  const out: SystemSource[] = [];
+  const re = /(?:@@\[main\][^\n]*\n\s*)?@@system\s+(\w+)(?:\s*\([^)]*\))?\s*\{/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(fjs))) {
+    const start = m.index;
+    let depth = 0;
+    let i = fjs.indexOf("{", m.index);
+    for (; i < fjs.length; i++) {
+      const c = fjs[i];
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) {
+          i++;
+          break;
+        }
+      }
+    }
+    out.push({ system: m[1], source: fjs.slice(start, i) });
+    re.lastIndex = i;
+  }
+  return out;
+}
+
 // Split a multi-system DOT file into its per-system digraphs. Brace-matched,
 // since Frame's HTML-table node labels use <…> (never { }), so the only braces
 // are the digraph delimiters themselves.
@@ -114,6 +147,7 @@ export interface MachineView {
   blurb?: string; // prose shown under the heading
   getState?: () => string | null; // live state name; omit for a static diagram
   pushPop?: readonly PushPopEdge[]; // synthetic push$/pop$ edges (see annotatePushPop)
+  source?: string; // Frame source for this system, rendered below the chart
 }
 
 // Renders a stack of state-chart cards (one per machine) and live-highlights
@@ -160,6 +194,18 @@ export class FsmPanel {
       const chartEl = document.createElement("div");
       chartEl.className = "fsm-chart";
       card.appendChild(chartEl);
+
+      // Per-card Frame source: the @@system block this diagram was generated
+      // from, rendered as a scrollable monospace block under the chart.
+      if (view.source) {
+        const sourceEl = document.createElement("pre");
+        sourceEl.className = "fsm-source";
+        const codeEl = document.createElement("code");
+        codeEl.textContent = view.source;
+        sourceEl.appendChild(codeEl);
+        card.appendChild(sourceEl);
+      }
+
       this.container.appendChild(card);
 
       const processedDot = annotatePushPop(
