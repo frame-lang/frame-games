@@ -121,6 +121,10 @@ let godotLoaded = false;
 // so the initial $JavaScript.$>() handler has a working game instance.
 type PageCtrl = { switch_to_js: () => void; switch_to_godot: () => void };
 let ctrl: PageCtrl | null = null;
+// Tracks which runtime the PageController is currently in. Used by the RAF
+// tick (skip panel.tick() when Godot is driving) and the BroadcastChannel
+// listener (apply snapshots from the Godot autoload when active).
+let activeRuntime: "js" | "godot" = "js";
 
 function renderTabs(active: string): void {
   tabsEl.replaceChildren(
@@ -251,6 +255,7 @@ async function main(): Promise<void> {
     // awake on page load.
     const host = {
       show_js() {
+        activeRuntime = "js";
         jsStage.classList.remove("hidden");
         godotStage.classList.add("hidden");
         if (game.input.keyboard) game.input.keyboard.enabled = true;
@@ -262,6 +267,7 @@ async function main(): Promise<void> {
         game.loop.sleep();
       },
       show_godot() {
+        activeRuntime = "godot";
         godotStage.classList.remove("hidden");
         jsStage.classList.add("hidden");
         if (!godotLoaded) void loadGodot();
@@ -297,12 +303,27 @@ async function main(): Promise<void> {
     }
   };
   channel.onmessage = (e) => {
-    if (e.data === "ping") sendSnapshot(true);
+    if (e.data === "ping") {
+      sendSnapshot(true);
+      return;
+    }
+    // Foreign snapshot (e.g., the Godot autoload publishing while the
+    // Godot tab is active). Drive the local FSM panel from it so the
+    // diagrams sync with whatever runtime is currently playing.
+    if (activeRuntime === "godot" && typeof e.data === "object" && e.data !== null) {
+      panel.applyStates(e.data as Record<string, string>);
+    }
   };
 
   const tick = (): void => {
-    panel.tick();
-    sendSnapshot(false);
+    // Skip the local-machine read when Godot is driving — the panel is
+    // already being updated by applyStates() from the BroadcastChannel
+    // listener above, and re-reading the (paused) JS machine each frame
+    // would just paint over the Godot state with stale JS state.
+    if (activeRuntime === "js") {
+      panel.tick();
+      sendSnapshot(false);
+    }
     requestAnimationFrame(tick);
   };
   tick();
