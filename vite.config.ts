@@ -1,5 +1,9 @@
 import { defineConfig } from "vite";
-import { resolve } from "node:path";
+import { resolve, join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { existsSync, createReadStream } from "node:fs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   // Three pages: the games index, the per-game player, and the pop-out FSM
@@ -25,4 +29,36 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
+  plugins: [
+    {
+      // Vite's HTML transformer normally injects `<script src="/@vite/client">`
+      // into every served HTML. The Godot-WASM iframe is *not* a Vite page —
+      // injecting that script collides with Godot's bootstrap and the canvas
+      // stays grey forever. This middleware intercepts requests under
+      // games/*/versions/godot-wasm/*.html and streams the file verbatim
+      // (with the same COOP/COEP headers as the global server config) so
+      // Godot's loader runs cleanly.
+      name: "godot-html-passthrough",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (!req.url) return next();
+          const url = req.url.split("?")[0];
+          if (
+            /^\/games\/[^/]+\/versions\/godot-wasm\//.test(url) &&
+            url.endsWith(".html")
+          ) {
+            const filePath = join(__dirname, url);
+            if (existsSync(filePath)) {
+              res.setHeader("Content-Type", "text/html");
+              res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+              res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+              createReadStream(filePath).pipe(res);
+              return;
+            }
+          }
+          next();
+        });
+      },
+    },
+  ],
 });
