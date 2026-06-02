@@ -6,8 +6,8 @@
   "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause",
   "machines": [
     {
-      "system": "Asteroids",
-      "title": "Asteroids — push$/pop$ pause where pop target varies",
+      "system": "AsteroidsGame",
+      "title": "AsteroidsGame — push$/pop$ pause where pop target varies",
       "blurb": "Top-level controller, parameterized by a starting difficulty. Attract zeroes the game, then start advances into the $InGame parent which holds Playing (the rally), ShipDying (the brief stun after the ship explodes), and WaveClear (between waves). Because pause() is handled on the $InGame parent, every child inherits it — push$ stashes whichever child was active and transitions to Paused; resume pops back to that exact child. Three callers, three possible pop targets — this is where the state stack actually earns its weight.",
       "pushPop": [
         { "from": "Playing", "to": "Paused", "pushEvent": "pause" },

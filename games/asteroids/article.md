@@ -39,7 +39,7 @@ You'll see other Frame games using `push$` / `pop$` for similar "temporary mode"
 
 ## Where push$/pop$ DOES earn its keep: the orchestrator's pause
 
-The top-level Asteroids system has the multi-caller story. `$Playing`, `$ShipDying`, and `$WaveClear` all inherit `pause()` from the `$InGame` HSM parent — three different children, three possible pop targets:
+The top-level `AsteroidsGame` system (the orchestrator — distinct from the game's display name "Asteroids", same way Pac-Man's orchestrator is named `GhostGame`) has the multi-caller story. `$Playing`, `$ShipDying`, and `$WaveClear` all inherit `pause()` from the `$InGame` HSM parent — three different children, three possible pop targets:
 
     $Playing => $InGame      # the rally
     $ShipDying => $InGame    # the brief stun after a death

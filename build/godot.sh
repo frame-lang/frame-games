@@ -35,7 +35,7 @@ case "${1:-}" in
     pong)        CH=ch01-pong;       SYSTEMS=("Pong:fsm") ;;
     breakout)    CH=ch02-breakout;   SYSTEMS=("Breakout:fsm" "Ball:fsm.ball") ;;
     invaders)    CH=ch03-invaders;   SYSTEMS=("Invaders:fsm" "Player:fsm.player" "Fleet:fsm.fleet") ;;
-    asteroids)   CH=ch04-asteroids;  SYSTEMS=("Asteroids:fsm" "Ship:fsm.ship" "AsteroidField:fsm.field") ;;
+    asteroids)   CH=ch04-asteroids;  SYSTEMS=("AsteroidsGame:fsm" "Ship:fsm.ship" "AsteroidField:fsm.field") ;;
     pacman)      CH=ch05-pacman;     SYSTEMS=("GhostGame:fsm" "Ghost:fsm.ghosts[0]" "GhostPen:fsm.pen") ;;
     platformer)  CH=ch06-platformer; SYSTEMS=("Platformer:fsm" "Locomotion:fsm.loco" "PowerUp:fsm.power") ;;
     shooter)     CH=ch07-shooter;    SYSTEMS=("Shooter:fsm" "Player:fsm.player" "Boss:fsm.boss" "Enemy:fsm.enemies[0]") ;;

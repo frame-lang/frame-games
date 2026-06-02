@@ -51,7 +51,7 @@ const STATE_ACCESSORS: Record<
   asteroids: (m) => {
     const sub = m as { ship: unknown };
     return {
-      Asteroids: () => liveState(m),
+      AsteroidsGame: () => liveState(m),
       Ship: () => liveState(sub.ship),
     };
   },

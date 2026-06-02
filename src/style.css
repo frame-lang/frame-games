@@ -32,6 +32,11 @@ a:hover {
   display: none !important;
 }
 
+/* Smooth-scroll for in-page anchors like the "Read article" jump. */
+html {
+  scroll-behavior: smooth;
+}
+
 /* ---- top bar ---- */
 .topbar {
   display: flex;
@@ -40,6 +45,20 @@ a:hover {
   padding: 16px 24px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
+}
+.read-article {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.read-article:hover {
+  background: var(--panel-2);
+  border-color: var(--accent);
+  text-decoration: none;
 }
 .topbar .home {
   font-size: 14px;
@@ -267,6 +286,10 @@ a:hover {
   font-size: 15px;
   line-height: 1.65;
   padding: 24px 0 8px;
+  /* Sticky .play column overlaps the top of the page; offset the scroll
+     anchor so the "Read article" jump lands the article heading below the
+     sticky stage, not behind it. */
+  scroll-margin-top: 24px;
 }
 .article h1 {
   margin: 0 0 16px;
