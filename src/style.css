@@ -7,6 +7,10 @@
   --muted: #9aa4b8;
   --dim: #7c8499;
   --accent: #8ab4f8;
+  /* Canvas height. Lives at :root so the resize handle (writes to
+     documentElement) and the anchor scroll-margin (#state-machines /
+     #article) both see the same value as .play-stage. */
+  --play-h: clamp(180px, 25vh, 320px);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
@@ -46,8 +50,7 @@ html {
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
-.read-article {
-  margin-left: auto;
+.toolbar-link {
   font-size: 13px;
   color: var(--accent);
   border: 1px solid var(--line);
@@ -55,7 +58,7 @@ html {
   padding: 6px 12px;
   white-space: nowrap;
 }
-.read-article:hover {
+.toolbar-link:hover {
   background: var(--panel-2);
   border-color: var(--accent);
   text-decoration: none;
@@ -108,11 +111,29 @@ html {
   padding-bottom: 14px;
 }
 
+/* Anchor scroll targets (See gameplay → #state-machines, Read article →
+   #article) need to clear the sticky .play column or they land underneath
+   it. `--play-h` is the canvas height; ~160 px covers the toolbar +
+   controls hint + resize handle + padding above and below. */
+#state-machines,
+#article {
+  scroll-margin-top: calc(var(--play-h, 250px) + 160px);
+}
+
 /* ---- play column ---- */
+.play-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.toolbar-sep {
+  color: var(--line);
+  user-select: none;
+}
 .version-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
 }
 .tab {
   background: var(--panel-2);
@@ -142,9 +163,9 @@ html {
      Width is then min(container, --play-h * 720/480) — the container cap
      keeps the stage in the column on mobile; the aspect-ratio derives the
      final height back from the chosen width. */
-  /* Default keeps the stage small enough that the FSM cards below are
-     in view on page load — drag the handle to grow it. */
-  --play-h: min(35vh, 360px);
+  /* --play-h is declared at :root (see top of file) so the resize handle
+     and the anchor scroll-margins both observe the same value. Width
+     derives from height to keep the 720/480 aspect ratio. */
   width: min(100%, calc(var(--play-h) * 1.5));
   aspect-ratio: 720 / 480;
   margin-inline: auto;

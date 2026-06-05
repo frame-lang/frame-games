@@ -13,12 +13,16 @@
         <h1 id="game-title">&nbsp;</h1>
         <p id="game-teaches" class="teaches"></p>
       </div>
-      <a class="read-article" href="#article">Read article &darr;</a>
     </header>
 
     <main class="game-layout">
       <section class="play">
-        <div class="version-tabs" id="version-tabs"></div>
+        <div class="play-toolbar">
+          <div class="version-tabs" id="version-tabs"></div>
+          <span class="toolbar-sep" aria-hidden="true">|</span>
+          <a class="toolbar-link" href="#state-machines">See gameplay &darr;</a>
+          <a class="toolbar-link" href="#article">Read article &darr;</a>
+        </div>
         <div class="play-stage">
           <div id="js-stage" class="stage"></div>
           <div id="godot-stage" class="stage hidden"></div>
@@ -29,7 +33,7 @@
         </div>
       </section>
 
-      <aside class="fsm">
+      <aside class="fsm" id="state-machines">
         <div class="fsm-header">
           <h2>State machines</h2>
           <button class="popout-btn" id="popout" title="Open the state machines in a separate window">Pop out &#x2197;</button>

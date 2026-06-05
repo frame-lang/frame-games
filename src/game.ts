@@ -13,12 +13,31 @@ const ARTICLES = import.meta.glob<string>("../games/*/article.md", {
   import: "default",
 });
 
-// Per-game Frame source (.fjs from the submodule), rendered below the FSM
-// panel so readers can see the controller that produced those diagrams.
-const FRAME_SOURCES = import.meta.glob<string>(
+// Per-game Frame source, rendered below the FSM panel so readers can see the
+// controller that produced those diagrams. Two glob sets — the .fjs that
+// drives the JS runtime and the .fgd that drives the Godot runtime. Same
+// system names + transitions on both sides (the diagrams come from the .fjs
+// DOT either way), but the source TEXT differs: target attribute, sometimes
+// per-target type annotations, sometimes minor target-specific tweaks. We
+// swap the source displayed under each card when the active runtime
+// changes, while leaving the chart SVGs untouched.
+const FRAME_SOURCES_JS = import.meta.glob<string>(
   "../vendor/frame-arcade-js/src/games/*/*.fjs",
   { eager: true, query: "?raw", import: "default" },
 );
+const FRAME_SOURCES_GODOT = import.meta.glob<string>(
+  "../vendor/frame-arcade/*/frame/*.fgd",
+  { eager: true, query: "?raw", import: "default" },
+);
+// The Godot chapter dirs are named ch01-pong / ch02-breakout / ..., so we
+// can't key by gameId directly. Pick the .fgd whose filename basename matches.
+function findGodotSource(gameId: string): string | undefined {
+  const suffix = `/${gameId}.fgd`;
+  for (const [path, src] of Object.entries(FRAME_SOURCES_GODOT)) {
+    if (path.endsWith(suffix)) return src;
+  }
+  return undefined;
+}
 
 // Per-game live-state accessors. Display metadata (titles, blurbs, push$/pop$
 // edges, version entries) lives in games/<id>/game.json; this maps a game id
@@ -201,20 +220,44 @@ async function main(): Promise<void> {
 
 
   // --- JS version: machine + Phaser scene + live FSM panel ---
-  const machine = def.createMachine();
+  //
+  // Some games' FSMs push one-shot effects to the scene via host callbacks
+  // (e.g. Ship.$Exploding.$>() calls host.spawn_explosion()). The scene IS
+  // the host, but it isn't constructed yet — so we hand the FSM a Proxy
+  // whose property accesses forward to `sceneRef.current` once it's set
+  // below. No host method can fire during machine construction (initial
+  // states have no $> handlers that touch the host), so the deferred wire
+  // is safe.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sceneRef: { current: any } = { current: null };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sceneHost = new Proxy({} as any, {
+    get: (_, prop: string) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (...args: unknown[]) => sceneRef.current?.[prop]?.(...args),
+  });
+  const machine = def.createMachine(sceneHost);
   const accessors = accessorsFor(machine);
 
-  // Per-system Frame source: split the .fjs once, look up by system name.
-  const fjs = FRAME_SOURCES[`../vendor/frame-arcade-js/src/games/${manifest.id}/${manifest.id}.fjs`];
-  const sourceBySystem = new Map(
-    (fjs ? splitFrameSystems(fjs) : []).map((s) => [s.system, s.source]),
-  );
+  // Per-system Frame source: split each Frame file once, look up by system
+  // name. Two maps — the active runtime's wins on initial render and on
+  // tab change. If a runtime's source file isn't available, switching to it
+  // is a no-op (the previous source stays visible) rather than blanking
+  // the panel.
+  const fjs = FRAME_SOURCES_JS[`../vendor/frame-arcade-js/src/games/${manifest.id}/${manifest.id}.fjs`];
+  const fgd = findGodotSource(manifest.id);
+  const sourcesByRuntime: Record<"js" | "godot", Map<string, string>> = {
+    js: new Map((fjs ? splitFrameSystems(fjs) : []).map((s) => [s.system, s.source])),
+    godot: new Map((fgd ? splitFrameSystems(fgd) : []).map((s) => [s.system, s.source])),
+  };
 
-  // Compose live MachineViews from the manifest metadata + the runtime accessors.
+  // Compose live MachineViews from the manifest metadata + the runtime
+  // accessors. Initial source = JS (the PageController starts in $JavaScript);
+  // host.show_godot() / show_js() swap them via panel.setSources().
   const views: MachineView[] = manifest.machines.map((m) => ({
     ...m,
     getState: accessors[m.system],
-    source: sourceBySystem.get(m.system),
+    source: sourcesByRuntime.js.get(m.system),
   }));
 
   const panel = new FsmPanel(panelEl);
@@ -233,7 +276,14 @@ async function main(): Promise<void> {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: new def.Scene(machine),
+    scene: (() => {
+      // Construct the scene FIRST so we can register it as the host target
+      // before any FSM event fires. Phaser still drives its lifecycle —
+      // we're just placing the instance in the config.
+      const sceneInstance = new def.Scene(machine);
+      sceneRef.current = sceneInstance;
+      return sceneInstance;
+    })(),
   });
 
   // Tell Phaser to capture (preventDefault) the keys the game uses, so the
@@ -260,6 +310,7 @@ async function main(): Promise<void> {
         godotStage.classList.add("hidden");
         if (game.input.keyboard) game.input.keyboard.enabled = true;
         game.loop.wake();
+        if (sourcesByRuntime.js.size > 0) panel.setSources(sourcesByRuntime.js);
       },
       hide_js() {
         jsStage.classList.add("hidden");
@@ -271,6 +322,8 @@ async function main(): Promise<void> {
         godotStage.classList.remove("hidden");
         jsStage.classList.add("hidden");
         if (!godotLoaded) void loadGodot();
+        // Falls back to leaving the JS source visible when no .fgd exists.
+        if (sourcesByRuntime.godot.size > 0) panel.setSources(sourcesByRuntime.godot);
       },
       hide_godot() {
         godotStage.classList.add("hidden");
@@ -352,7 +405,9 @@ async function main(): Promise<void> {
       if (!dragging) return;
       const dy = e.clientY - startY;
       const newH = Math.max(MIN_H, Math.min(MAX_H, startH + dy));
-      playStage.style.setProperty("--play-h", `${newH}px`);
+      // Write to documentElement so the anchor scroll-margins on
+      // #state-machines / #article (which use var(--play-h)) update too.
+      document.documentElement.style.setProperty("--play-h", `${newH}px`);
     });
     const endDrag = (): void => {
       dragging = false;
