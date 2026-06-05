@@ -16,7 +16,7 @@ grid.replaceChildren(
   ...manifests.map((m) => {
     const a = document.createElement("a");
     a.className = "game-card";
-    a.href = `/game.html?game=${encodeURIComponent(m.id)}`;
+    a.href = `${import.meta.env.BASE_URL}game.html?game=${encodeURIComponent(m.id)}`;
 
     const h = document.createElement("h2");
     h.textContent = m.title;

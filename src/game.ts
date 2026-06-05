@@ -440,7 +440,7 @@ async function main(): Promise<void> {
   if (popoutBtn) {
     popoutBtn.onclick = () => {
       window.open(
-        `/fsm.html?game=${encodeURIComponent(manifest.id)}`,
+        `${import.meta.env.BASE_URL}fsm.html?game=${encodeURIComponent(manifest.id)}`,
         `fsm-${manifest.id}`,
         "width=1400,height=900",
       );
