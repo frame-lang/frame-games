@@ -1,0 +1,136 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping intermediate runs in the queue.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.6.2-stable
+  # framec source — pinned via the rev below so CI is reproducible.
+  FRAMEC_REPO: https://github.com/frame-lang/framec
+  # ~/.cargo/bin is on PATH; the install puts the framec binary there.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # ----- checkout (recursive: vendor/frame-arcade-js and vendor/frame-arcade) -----
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ----- Node + Rust toolchains -----
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # ----- framec (Rust binary that compiles .fjs / .fgd) -----
+      # The cargo registry + the installed framec binary are cached together
+      # so we only pay the ~3 min cargo build the first time, or when the
+      # version key below is bumped.
+      - name: Cache framec
+        id: cache-framec
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/framec
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: framec-${{ runner.os }}-v4.3.1
+
+      - name: Install framec
+        if: steps.cache-framec.outputs.cache-hit != 'true'
+        run: cargo install --git ${{ env.FRAMEC_REPO }} --locked framec
+
+      - name: Verify framec
+        run: framec --version
+
+      # ----- Godot 4.6.2 + Web export templates -----
+      # Both pieces are cached together; ~/.local/share/godot is where Godot
+      # looks for export templates on Linux.
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            /opt/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-linux
+
+      - name: Install Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          GV="${{ env.GODOT_VERSION }}"
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${GV}"
+          # Editor binary (used with --headless --export-release)
+          curl -sL -o godot.zip "${BASE}/Godot_v${GV}_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mkdir -p /opt/godot
+          sudo mv "Godot_v${GV}_linux.x86_64" /opt/godot/godot
+          sudo chmod +x /opt/godot/godot
+          rm godot.zip
+          # Web export templates — Godot expects them under
+          # ~/.local/share/godot/export_templates/<version>.stable/
+          curl -sL -o templates.tpz "${BASE}/Godot_v${GV}_export_templates.tpz"
+          VER_DIR="${GV%-stable}.stable"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${VER_DIR}"
+          unzip -q templates.tpz -d /tmp/godot-templates
+          mv /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/${VER_DIR}/"
+          rm templates.tpz
+          rm -rf /tmp/godot-templates
+
+      - name: Add Godot to PATH
+        run: echo "/opt/godot" >> $GITHUB_PATH
+
+      - name: Verify Godot
+        run: godot --version --headless
+
+      # ----- npm install + per-game builds -----
+      - name: Install npm dependencies
+        run: npm ci
+
+      # build/godot.sh exports each chapter's WASM into
+      # games/<id>/versions/godot-wasm/. The 'all' arg loops over every
+      # chapter; failures on individual games don't abort the rest.
+      - name: Build Godot WASM exports
+        env:
+          GODOT: /opt/godot/godot
+        run: bash build/godot.sh all
+
+      - name: Vite build
+        run: npm run build
+
+      # ----- publish dist/ as the Pages artifact -----
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

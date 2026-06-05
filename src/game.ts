@@ -172,11 +172,21 @@ function godotNote(msg: string): void {
   godotStage.replaceChildren(p);
 }
 
+// Vite's BASE_URL — "/" in dev, "/frame-games/" in production. Used to
+// rewrite absolute "/games/..." URLs that come from authored content
+// (game.json's Godot entry, article markdown image refs) so they resolve
+// correctly when the site is served from a subpath.
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+function withBase(path: string): string {
+  return BASE ? BASE + path : path;
+}
+
 // Lazy: only fetch/boot the (heavy) Godot WASM build when its tab is opened.
 async function loadGodot(): Promise<void> {
   godotLoaded = true;
-  const src = versionEntry(manifest, "godot-wasm")?.entry;
-  if (!src) return godotNote("No Godot build is configured for this game.");
+  const entry = versionEntry(manifest, "godot-wasm")?.entry;
+  if (!entry) return godotNote("No Godot build is configured for this game.");
+  const src = withBase(entry);
   // Probe a Godot-only artifact (the .pck) — Vite's SPA fallback returns 200
   // for any unknown index.html, so HEAD on the entry can lie and we'd embed
   // the page inside itself. The .pck only exists when the real export ran.
@@ -212,9 +222,15 @@ async function main(): Promise<void> {
   renderTabs("js");
 
   // Long-form article (optional): hidden unless games/<id>/article.md exists.
+  // Markdown image refs like ![](/games/asteroids/images/x.svg) are static
+  // strings — rewrite them at parse time to respect the deployed subpath.
   const articleMd = ARTICLES[`../games/${manifest.id}/article.md`];
   if (articleMd) {
-    articleEl.innerHTML = marked.parse(articleMd) as string;
+    const html = (marked.parse(articleMd) as string).replace(
+      /(\s(?:src|href)=)"\/games\//g,
+      `$1"${BASE}/games/`,
+    );
+    articleEl.innerHTML = html;
     articleEl.classList.remove("hidden");
   }
 

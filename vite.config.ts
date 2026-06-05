@@ -1,11 +1,18 @@
 import { defineConfig } from "vite";
 import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, createReadStream } from "node:fs";
+import { existsSync, createReadStream, cpSync } from "node:fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig({
+// GitHub Pages deploys under https://<org>.github.io/frame-games/, so the
+// production build needs base="/frame-games/" for asset URLs. The dev
+// server stays at root. Override with VITE_BASE if you deploy elsewhere
+// (e.g. VITE_BASE=/ for a custom-domain build).
+const PROD_BASE = process.env.VITE_BASE ?? "/frame-games/";
+
+export default defineConfig(({ command }) => ({
+  base: command === "build" ? PROD_BASE : "/",
   // Three pages: the games index, the per-game player, and the pop-out FSM
   // viewer (driven by BroadcastChannel from the player page).
   build: {
@@ -60,5 +67,28 @@ export default defineConfig({
         });
       },
     },
+    {
+      // Per-game static assets (article images, Godot WASM exports) live
+      // under games/<id>/ but aren't bundled by Vite (article markdown's
+      // <img src="/games/..."> URLs are static strings; the Godot iframe
+      // src comes from game.json). Copy them into dist/ at build time so
+      // the production site can serve them at the same paths.
+      name: "copy-game-assets",
+      apply: "build",
+      closeBundle() {
+        const src = resolve(__dirname, "games");
+        const dst = resolve(__dirname, "dist/games");
+        if (!existsSync(src)) return;
+        cpSync(src, dst, {
+          recursive: true,
+          // Skip files that are already bundled by Vite via import.meta.glob:
+          // article markdown is parsed inline; game.json drives manifest
+          // metadata. Both ship inside the JS bundle, so they don't need a
+          // second copy on disk.
+          filter: (path) =>
+            !path.endsWith(".md") && !path.endsWith("game.json"),
+        });
+      },
+    },
   ],
-});
+}));
