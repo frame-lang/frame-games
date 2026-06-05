@@ -7,7 +7,7 @@ A few terms used throughout:
 - **Frame system (controllers)** — the Frame systems that manage the gameplay.
 - **Engine** — the runtime the game lives in. Either a Phaser scene (`AsteroidsScene.ts`) or a Godot scene driver (`main.gd`). The engine owns sprites, input handling, audio, and the `update()` loop that runs every scene frame. "Renderer" will specifically mean drawing pixels; "engine" covers the whole runtime.
 - **Scene frame** — one iteration of the engine's `update()` loop (~60×/sec). Used here to avoid colliding with "Frame" the language; when this article says "scene frame" it always means one of these render ticks.
-- **Host** — a small adapter on the engine side. The engine instantiates each controller and passes it a host object. The controller saves that object and calls back into it at state entries / exits to drive engine-side effects. Each engine implements its own host with the same method names, so the same controller drives both targets unchanged.
+- **Host** — a small adapter on the engine side. The engine instantiates each controller and passes it a host object. The controller saves that object and calls back into it at state entries / exits to drive engine-side effects. Each engine implements its own host with the same method names, so the same controller drives both engines through the same interface.
 
 ## AsteroidsGame System
 
@@ -19,21 +19,21 @@ As indicated by the black ball and transition arrow, the game starts off in the 
 
 ### Hierarchical State Machines (HSMs)
 
-The core game logic is managed by three related states — Playing, ShipDying and WaveClear — that all inherit transition to the Pause state behavior from the InGame parent state they share.
+The core game logic is managed by three related states — Playing, ShipDying and WaveClear — that all inherit the transition to the Pause state behavior from the InGame parent state they share.
 
 ### History
 
 Statecharts introduced the History transition mechanism and notation which is shown in the diagram as H\*. State History is essentially a way to generically return to the prior state, whatever it was. In the AsteroidsGame system, the InGame state holds the shared transition into the Paused state. However the system will never actually be in the InGame state — only in one of its children. Therefore even though InGame does the transition on behalf of its children, the History (H\*) will correctly transition to Playing, ShipDying or WaveClear but never to InGame. This interplay of notation between HSMs and History can be subtle at first, but provides significant improvements to simplify diagrams and provide expressive power.
 
-## How the engine and the Ship talk
+## Game Engine and Ship Communication
 
-The Ship is a controller. It tracks which mode the ship is in (alive, exploding, respawning, hyperspace, dead) and how long it's been there. It doesn't draw anything. The engine — `AsteroidsScene.ts` for the JavaScript build, `main.gd` for the Godot build — is everything else: the sprite's position and rotation, keyboard input, physics integration, drawing pixels. It doesn't decide what mode the ship is in.
+The Ship is a Frame system controller that tracks which mode the ship is in (alive, exploding, respawning, hyperspace, dead) and how long it's been there (if relevant). The Ship does not directly control the game display or other low level game aspects. Instead it controls very high-level state management which the engine then converts into low level game engine specific logic.
 
 The relationship between the two is **asymmetric**:
 
-- **The engine constructs the Ship and hands itself in.** `AsteroidsGame._create(difficulty, self)` in Godot, the late-bound scene proxy in JS. The Ship stores that reference in a domain field called `host`.
-- **From then on, the engine reaches into the Ship directly** — it has a reference to the sub-system and just calls its methods (`m.ship.is_visible()`, `m.ship.hit()`). No indirection.
-- **The Ship reaches back only via `this.host`** — it has no direct knowledge of the engine, just the reference it was given at construction.
+- **The engine constructs the Ship and passes a reference to itself.** The Ship stores that reference in a domain field called `host`.
+- **From then on, the engine calls the Ship directly** (`m.ship.is_visible()`, `m.ship.hit()`).
+- **The Ship can then call back into the engine** via the `this.host` reference.
 
 That's the one-time setup. Once it's done, three streams of information cross the boundary every scene frame:
 
@@ -41,21 +41,21 @@ That's the one-time setup. Once it's done, three streams of information cross th
 
 ### Engine → Ship: queries (direct)
 
-Every scene frame the engine asks the Ship a handful of yes/no questions before deciding what to render: `m.ship.is_visible()`, `m.ship.can_fire()`, `m.ship.can_be_hit()`, `m.ship.is_alive()`. The Ship's current state is what answers them. In `$Alive` all four return `true`. In `$InHyperspace` only `is_alive()` is true — so the engine sees `is_visible() == false` and stops drawing the triangle, and `can_be_hit() == false` and stops registering asteroid collisions. The engine never asks "what state are you in?" — it asks specific questions and renders the answers. Adding a new mode to the Ship can change the gameplay rules across the board without touching the engine, as long as the new mode answers the same questions.
+In every game scene frame the engine asks the Ship a handful of yes/no questions before deciding what to render: `m.ship.is_visible()`, `m.ship.can_fire()`, `m.ship.can_be_hit()`, `m.ship.is_alive()`. The Ship's current state is what tailors the response to the current situation (what state the Ship is in).
 
 ### Engine → Ship: events (direct)
 
-When the player hits H or an asteroid collides with the ship, the engine signals it as an event: `m.ship_hyperspace()`, `m.ship.hit()`. The Ship's currently-active state handles the event and may transition to a new mode. The engine doesn't pick the next state — it just announces what happened in the world. Likewise the `tick(dt)` event the engine fires every scene frame drives the Ship's internal timers (the 0.4 s warp, the 1.0 s explosion, the 2.0 s respawn invulnerability). Without `tick`, the Ship would never advance through its timed states; the engine is its clock.
+When the player hits H or an asteroid collides with the ship, the engine signals it as an event to the Ship. The Ship's currently-active state handles the event and may transition to a new state. The engine doesn't pick the next state — it just announces what happened in the game environment. Likewise the `tick(dt)` event the engine fires every scene frame drives the Ship's internal timers (the 0.4 s warp, the 1.0 s explosion, the 2.0 s respawn invulnerability). Without `tick`, the Ship would never advance through its timed states; the engine provides the Ship's metronome.
 
 ### Ship → Engine: host callbacks (via `this.host`)
 
-Some moments in the Ship's life require the engine to *do* something one-shot — scatter debris when entering `$Exploding`, recenter the sprite when entering `$Respawning`, pick a fresh position when entering `$InHyperspace`. The Ship can't reach the engine directly, so it calls into the reference it stored at construction. `$Exploding.$>()` runs `this.host.spawn_explosion()`. `$InHyperspace.$>()` runs `this.host.warp_out()`. The Phaser engine's host implementation scatters Phaser line-segment fragments; Godot's runs the equivalent draw call. Same Frame source on both sides — only the implementations of `spawn_explosion`, `reset_ship`, `warp_out`, `warp_in` differ per engine.
+Some moments in the Ship's life require the engine to *do* something one-shot — scatter debris when entering `$Exploding`, recenter the sprite when entering `$Respawning`, pick a fresh position when entering `$InHyperspace`. The Ship can't reach the engine directly, so it calls through the host reference it was passed during construction. `$Exploding.$>()` runs `this.host.spawn_explosion()`. `$InHyperspace.$>()` runs `this.host.warp_out()`. The Phaser engine's host implementation scatters Phaser line-segment fragments; Godot's runs the equivalent draw call. The Ship's Frame source is the same for both game platforms — only the engine-side implementations of `spawn_explosion`, `reset_ship`, `warp_out`, `warp_in` differ.
 
 The shape of the relationship is what makes the Ship portable. The engine pulls state every scene frame via direct calls; the Ship pushes events at the moments its state changes via the stored host. The two never share a variable, never need to be kept in sync, never copy a "current mode" string into the engine. Asking the same question twice gets the same answer; the Ship is the single source of truth.
 
 ## Ship System
 
-The Ship system is simpler than the AsteroidsGame but demonstrates several useful things: state-local variables for timers, a global tick mechanism to drive those timers, and the host pattern for letting the controller signal one-shot effects back to the engine at state boundaries.
+The Ship system is simpler than the AsteroidsGame but demonstrates several Frame capabilities: state-local variables for timers, a global tick mechanism to drive those timers, and the host pattern for letting the controller signal one-shot effects back to the engine at state boundaries.
 
 It is important to note that the implementation of the controllers avoids micromanagement of the game physics — bullets aren't implemented as state machines for example. Nor is the fine grained ship navigation and propulsion, though they could have been, but likely without much value as they aren't that complex. This is a tension that developers will experience when deciding what logic to implement with Frame vs native environment or framework capabilities. There is no right or wrong answer, but generally Frame will best help in teasing apart and making visible the most intricate aspects of the game or development project.
 
@@ -75,7 +75,7 @@ The Ship system declares a `host` parameter and stores it as a domain variable:
 }
 ```
 
-When the engine constructs the controllers it passes itself (or a small adapter object) as `host`. The Ship's state entry/exit handlers (`$>` / `<$`) then call back through `this.host.<method>()` whenever the ship enters or leaves a state where the engine needs to do something one-shot — spawn an explosion, recenter the sprite, pick a fresh hyperspace position. The same method names are implemented twice — once in `AsteroidsScene.ts` for the Phaser engine and once in `main.gd` for Godot — and Ship itself doesn't change between targets.
+When the engine constructs the controllers it passes a reference to itself as the host system parameter. Frame automatically stores this argument in the domain variable with the same name as the parameter.
 
 ## $Alive State
 
@@ -212,33 +212,26 @@ $Dead {
 
 Everything answers `false`. The only way out is `respawn()`, which the orchestrator (AsteroidsGame) calls when the player restarts a game — `lives_remaining` gets reset from the domain default and the ship returns to $Alive.
 
-## `get_state()` as an operation, not on the interface
+## Frame Operations
 
-You'll want the engine to know which state the ship is currently in — for the live state diagram, the BroadcastChannel snapshot, debug logs. The temptation is to put `get_state(): string` on the interface and let each state declare its own return value:
+A Frame system normally communicates through its **interface** — events that get routed to the active state's handler and may trigger transitions. Every interface call goes through that event dispatch.
 
-```
-interface:
-    get_state(): string
-
-machine:
-    $Alive {
-        get_state(): string { @@:("alive") }
-    }
-    $Exploding {
-        get_state(): string { @@:("exploding") }
-    }
-    ...
-```
-
-This works but it has three problems: the string and the state name are independent and can drift apart, five states means five copies of the same boilerplate, and the snake-case answers don't match the PascalCase state names the diagram and the Frame runtime actually use.
-
-The Ship system avoids all of that by exposing the current state name once, as an **operation**:
+**Operations** are a backdoor. They're plain methods on the system class that skip the state machine entirely — no event, no routing through the current state, no chance for any state to override the result. You declare them in the `operations:` block. The Ship's only operation looks like this:
 
 ```
 operations:
-    get_state(): string { @@:(@@:system.state) }
+    get_current_state_name(): string { @@:(@@:system.state) }
 ```
 
-`@@:system.state` evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, etc. Rename a state in the diagram and the answer updates automatically; there's nothing else to keep in sync.
+`@@:system.state` evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, and so on. Calling `m.ship.get_current_state_name()` is a direct method call that returns that string. The state machine isn't involved at all, which is why operations don't appear in the engine ↔ Ship interaction earlier in this article — they sit outside that contract.
 
-Why an `operations` block rather than the `interface`? Frame's two blocks lower to different things. Interface methods are dispatched as events — there's an event object, context push, per-state routing, exit/enter sequencing. That dispatch is exactly what you want for `tick(dt)` and `hit()`, where each state may handle the event differently. Operations are plain method calls — no dispatch, no per-state override possible. `get_state()` is a single derived value (`@@:system.state`) that means the same thing in every state, so an operation is the cheaper and safer home for it.
+The power of operations is also the risk. Routing logic through them makes it invisible to the state machine: the diagram won't show it, transitions can't fire from it, and you've broken the encapsulation that lets a Frame system be portable across engines. **If a method might change state, keep it on the interface.** Operations are for things that don't.
+
+Where they earn their keep is **non-disruptive, minimally-invasive reads** — questions the engine, the visualizer, or a debug log wants to ask the system without driving its state machine. `get_current_state_name()` is the canonical example: every consumer needs it, none of them want to mutate anything when they ask. Other good fits are returning a computed value or wrapping a domain field for a stable read-only surface.
+
+A rule of thumb for what goes where in a Frame system:
+
+- **`interface`** — events that may change state or trigger transitions
+- **`operations`** — pure reads or computed values that don't drive the machine
+- **`$.<name>`** state-local variables — timers and counters scoped to one state's lifetime
+- **`domain`** — values that persist for the whole system's lifetime
