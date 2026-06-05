@@ -8,11 +8,7 @@
     {
       "system": "Pong",
       "title": "Pong",
-      "blurb": "The whole game in one machine. Attract zeroes the scoreboards, Serving waits for the player to launch, InPlay tracks the rally, PointScored decides next-server (or game over), and GameOver waits for restart. Pause is push$/pop$ from either Serving or InPlay, so resume returns to whichever was active. The Phaser scene reads get_state() each frame and fires the interface events — the machine owns every transition.",
-      "pushPop": [
-        { "from": "Serving", "to": "Paused", "pushEvent": "pause" },
-        { "from": "InPlay", "to": "Paused", "pushEvent": "pause" }
-      ]
+      "blurb": "The whole game in one machine. Attract zeroes the scoreboards, Serving waits for the player to launch, InPlay tracks the rally, PointScored decides next-server (or game over), and GameOver waits for restart. Pause is push$/pop$ from either Serving or InPlay, so resume returns to whichever was active. The Phaser scene reads get_state() each frame and fires the interface events — the machine owns every transition."
     }
   ],
   "versions": [
