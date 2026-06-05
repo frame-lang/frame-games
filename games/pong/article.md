@@ -19,7 +19,7 @@ The machine never touches a sprite. The scene never touches the score directly. 
 
 Notice the **push$** / **pop$** pair on the Paused state. When you hit P during play, Frame *stashes the current compartment* (the in-flight game state) onto an internal stack and transitions to `Paused`. When you hit P again, **pop$** restores the stashed compartment — you resume in exactly the state you paused in, whether you were `Serving` or `InPlay`.
 
-The dashed `pause (push$)` edges in the diagram are the push direction; the `↩` node at the bottom is the pop target — the state that was active when you pushed.
+The `Paused -> H*` edge in the diagram is the pop direction: pop$ restores whichever child compartment was on top of the stack. Framec's current graphviz output doesn't draw the push direction for inline `push$ -> $X` handlers — see [rfc-candidates.md](../../rfc-candidates.md) for the proposal to add it.
 
 ## Try it
 

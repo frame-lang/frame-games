@@ -20,7 +20,9 @@ In Frame's syntax it looks like `$Playing => $InGame { ... }` — the `=>` reads
 
 ## What happens when you press P
 
-The orchestrator might be in `Playing`, `PlayerDying`, or `WaveComplete`. All three inherit `pause()` from `$InGame`. The handler does **push$** → stashes whichever child was active, transitions to `Paused`. The `↩` node at the bottom of the diagram lists all three children — pop returns to whichever one you paused in.
+The orchestrator might be in `Playing`, `PlayerDying`, or `WaveComplete`. All three inherit `pause()` from `$InGame`. The handler does **push$** → stashes whichever child was active, transitions to `Paused`. Pop returns to whichever child you paused in.
+
+You'll notice the diagram shows `Paused` with no incoming edge — framec doesn't currently emit a graphviz edge for inline `push$ -> $X` handlers (it does emit one for normal inherited transitions). The pop edge to the `H*` history pseudostate is what restores the stashed child. See [rfc-candidates.md](../../rfc-candidates.md) for the fix proposal.
 
 ## Try it
 

@@ -21,7 +21,12 @@ export interface SystemSource {
 }
 export function splitFrameSystems(fjs: string): SystemSource[] {
   const out: SystemSource[] = [];
-  const re = /(?:@@\[main\][^\n]*\n\s*)?@@system\s+(\w+)(?:\s*\([^)]*\))?\s*\{/g;
+  // System header forms accepted:
+  //   @@system Ball {                         (the .fjs JS target)
+  //   @@system Ball : RefCounted {            (the .fgd GDScript target)
+  //   @@system Ball(arg: int) { ... }         (parameterized)
+  //   @@[main]\n@@system Ball ...             (main-system attribute)
+  const re = /(?:@@\[main\][^\n]*\n\s*)?@@system\s+(\w+)(?:\s*\([^)]*\))?(?:\s*:\s*\w+)?\s*\{/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(fjs))) {
     const start = m.index;
@@ -93,46 +98,6 @@ export function compactClusterLabels(dot: string): string {
   );
 }
 
-// Frame's graphviz output renders `push$ -> $X` and the matching `-> pop$` via
-// a shared H* (Stack) pseudostate: the resume edge is drawn as `X -> Stack`,
-// but the forward push edge is silent (Stack has no incoming arrow). Without
-// Frame background that reads as "Paused is unreachable", which is wrong.
-// This injects a dashed forward edge for each declared push$/pop$ pair and
-// relabels the H* node with the state it returns to.
-export interface PushPopEdge {
-  from: string; // pushing state (e.g. "Playing")
-  to: string; // pushed-to state (e.g. "Paused")
-  pushEvent: string; // the event that triggers push$ (e.g. "pause")
-}
-
-export function annotatePushPop(dot: string, edges: readonly PushPopEdge[]): string {
-  if (edges.length === 0) return dot;
-  let result = dot;
-  const fromStates = Array.from(new Set(edges.map((e) => e.from)));
-  // Relabel Stack with the state(s) the resume edge pops back to. For a single
-  // source state, keep it inline ("↩ Playing"). For multiple, stack them
-  // vertically with a `|` gutter so the node stays narrow — joining with " / "
-  // ballooned the circle when there were three source states.
-  const stackLabel =
-    fromStates.length === 1
-      ? `↩ ${fromStates[0]}`
-      : `↩\\n${fromStates.map((s) => `| ${s}`).join("\\n")}`;
-  result = result.replace(
-    /Stack\[shape="circle" label="H\*"/,
-    `Stack[shape="circle" label="${stackLabel}"`,
-  );
-  // Inject a dashed forward edge per declared push so the push$ path is
-  // visible — UNLESS Frame already drew it. Inline `push$ -> $X` syntax is
-  // silent in graphviz; the split form (`push$` then `-> $X` on its own line)
-  // is drawn as a normal edge, and an injected dashed one would duplicate it.
-  const inserts = edges
-    .filter((e) => !new RegExp(`${e.from}\\s*->\\s*${e.to}\\b`).test(result))
-    .map((e) => `    ${e.from} -> ${e.to} [label=" ${e.pushEvent} (push$) " style="dashed"]`)
-    .join("\n");
-  if (inserts) result = result.replace(/\}\s*$/, inserts + "\n}");
-  return result;
-}
-
 // The current Frame state name of any generated machine — equals `current_state()`
 // for the main system, and works uniformly for sub-machines (which don't expose
 // that method). Returns the PascalCase state name that matches the .dot titles.
@@ -146,7 +111,6 @@ export interface MachineView {
   title?: string; // heading (defaults to `system`)
   blurb?: string; // prose shown under the heading
   getState?: () => string | null; // live state name; omit for a static diagram
-  pushPop?: readonly PushPopEdge[]; // synthetic push$/pop$ edges (see annotatePushPop)
   source?: string; // Frame source for this system, rendered below the chart
 }
 
@@ -177,6 +141,7 @@ export class FsmPanel {
 
       const card = document.createElement("section");
       card.className = "fsm-card";
+      card.dataset.system = view.system;
 
       if (this.reorderable) card.appendChild(this.buildMoveBar(card));
 
@@ -203,16 +168,36 @@ export class FsmPanel {
 
       this.container.appendChild(card);
 
-      const processedDot = annotatePushPop(
-        compactClusterLabels(compactStateLabels(dot)),
-        view.pushPop ?? [],
-      );
+      const processedDot = compactClusterLabels(compactStateLabels(dot));
       const chart = new StateChart(chartEl, processedDot);
       await chart.render();
       this.charts.push({ system: view.system, chart, getState: view.getState });
     }
 
     if (this.reorderable) this.refreshMoveButtons();
+  }
+
+  // Swap the per-card Frame source text in-place (e.g., when the user toggles
+  // between the JS runtime's .fjs and the Godot runtime's .fgd). Leaves the
+  // SVG diagrams alone — the state names match across targets, so the chart
+  // (and any live highlight) keeps working without a re-render.
+  setSources(sources: ReadonlyMap<string, string>): void {
+    for (const card of Array.from(this.container.children) as HTMLElement[]) {
+      const sys = card.dataset.system;
+      if (!sys) continue;
+      const src = sources.get(sys);
+      if (src == null) continue;
+      let code = card.querySelector(".fsm-source code") as HTMLElement | null;
+      if (!code) {
+        // Card was rendered without a source initially; build it on demand.
+        const sourceEl = document.createElement("pre");
+        sourceEl.className = "fsm-source";
+        code = document.createElement("code");
+        sourceEl.appendChild(code);
+        card.appendChild(sourceEl);
+      }
+      code.textContent = src;
+    }
   }
 
   private buildMoveBar(card: HTMLElement): HTMLElement {

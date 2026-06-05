@@ -20,13 +20,11 @@ import platformerManifest from "../games/platformer/game.json";
 import shooterManifest from "../games/shooter/game.json";
 import stealthManifest from "../games/stealth/game.json";
 import type { GameDef } from "../vendor/frame-arcade-js/src/games/types";
-import type { PushPopEdge } from "./fsm-panel";
 
 export interface MachineMeta {
   system: string;
   title?: string;
   blurb?: string;
-  pushPop?: readonly PushPopEdge[];
 }
 
 export interface VersionMeta {
