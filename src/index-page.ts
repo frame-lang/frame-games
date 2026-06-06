@@ -11,7 +11,7 @@ const modules = import.meta.glob<{ default: GameManifest }>(
 // other games haven't been adapted yet. They're still bundled and reachable
 // via direct game.html?game=<id> URLs; this is purely a card-visibility
 // filter on the home grid.
-const VISIBLE_GAMES = new Set(["asteroids", "pong"]);
+const VISIBLE_GAMES = new Set(["asteroids"]);
 const manifests = Object.values(modules)
   .map((m) => m.default)
   .filter((m) => VISIBLE_GAMES.has(m.id))
