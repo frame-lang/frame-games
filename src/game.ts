@@ -117,7 +117,6 @@ const STATE_ACCESSORS: Record<
 };
 
 const titleEl = document.getElementById("game-title")!;
-const teachesEl = document.getElementById("game-teaches")!;
 const controlsEl = document.getElementById("controls")!;
 const mobileControlsEl = document.getElementById("mobile-controls")!;
 const tabsEl = document.getElementById("version-tabs")!;
@@ -218,7 +217,6 @@ async function loadGodot(): Promise<void> {
 
 async function main(): Promise<void> {
   titleEl.textContent = manifest.title;
-  teachesEl.textContent = manifest.teaches;
   controlsEl.textContent = manifest.controls;
   document.title = `${manifest.title} — Frame Games`;
   renderTabs("js");
