@@ -271,6 +271,12 @@ body.force-touch .mobile-controls .mobile-control[aria-label="FIRE"] {
   background: var(--bg);
   padding-top: 8px;
   padding-bottom: 14px;
+  /* iOS Safari ignores `position: sticky` on flex children unless an
+   * explicit cross-axis alignment is set. .game-layout is a column flex
+   * container, so the cross axis is horizontal — but the bug fires
+   * anyway; flex-start is the canonical workaround. */
+  align-self: flex-start;
+  width: 100%;
 }
 
 /* Anchor scroll targets (See gameplay → #state-machines, Read article →
