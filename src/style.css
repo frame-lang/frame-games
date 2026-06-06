@@ -165,9 +165,9 @@ html {
     min-width: 0;
     /* Icons want to be visually substantial; FIRE label gets overridden
      * below to a smaller text size since it's multi-char. */
-    font-size: 22px;
+    font-size: 44px;
     line-height: 1;
-    min-height: 52px;
+    min-height: 72px;
     padding: 6px 4px;
     letter-spacing: 0;
     /* Force text-style rendering for codepoints that default to emoji
@@ -181,7 +181,7 @@ html {
   .mobile-controls .mobile-control[aria-label="FIRE"] {
     flex: 2 1 0;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 18px;
     letter-spacing: 0.05em;
   }
 }
