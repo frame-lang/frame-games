@@ -66,9 +66,27 @@ case "${1:-}" in
 esac
 
 GAME="$1"
-SRC_PROJECT="$REPO_DIR/vendor/frame-arcade/$CH"
 STAGE_DIR="$REPO_DIR/build/godot-$GAME"
 OUT_DIR="$REPO_DIR/games/$GAME/versions/godot-wasm"
+
+# Two source layouts:
+#   LOCAL: games/<id>/{frame,godot,generated}/ — owned by frame-games proper.
+#   VENDOR: vendor/frame-arcade/<chXX-id>/{frame,godot,generated}/ — the
+#     deprecated submodule. Games migrate from VENDOR to LOCAL one at a time.
+case "$GAME" in
+    asteroids)
+        SRC_PROJECT="$REPO_DIR/games/$GAME"
+        FRAME_SRC="$SRC_PROJECT/frame/$GAME.fgd"
+        GENERATED_DIR="$SRC_PROJECT/generated"
+        GODOT_DIR="$SRC_PROJECT/godot"
+        ;;
+    *)
+        SRC_PROJECT="$REPO_DIR/vendor/frame-arcade/$CH"
+        FRAME_SRC="$SRC_PROJECT/frame/$GAME.fgd"
+        GENERATED_DIR="$SRC_PROJECT/generated"
+        GODOT_DIR="$SRC_PROJECT/godot"
+        ;;
+esac
 
 GODOT_BIN="${GODOT:-godot}"
 if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
@@ -83,12 +101,14 @@ echo "==> $GAME ($CH)"
 echo "=========================================================="
 
 echo "==> regenerate .gd from Frame source"
-( cd "$SRC_PROJECT" && bash build.sh )
+mkdir -p "$GENERATED_DIR" "$GODOT_DIR/scripts"
+framec compile "$FRAME_SRC" --language gdscript -o "$GENERATED_DIR/"
+cp "$GENERATED_DIR/$GAME.gd" "$GODOT_DIR/scripts/$GAME.gd"
 
 echo "==> stage Godot project at $STAGE_DIR"
 rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
-cp -R "$SRC_PROJECT/godot/." "$STAGE_DIR/"
+cp -R "$GODOT_DIR/." "$STAGE_DIR/"
 
 echo "==> inject live_state_publisher.gd"
 # The autoload posts a per-game state snapshot onto the BroadcastChannel that

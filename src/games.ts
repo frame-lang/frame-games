@@ -3,10 +3,13 @@
 // in JSON: the vendored GameDef from frame-arcade-js (createMachine + Phaser
 // Scene + the generated .dot). Adding a game is mostly a data change — drop
 // in games/<id>/game.json and add one entry here pointing at its def.
+// Asteroids lives in frame-games proper now (games/asteroids/src) — the
+// frame-arcade-js submodule is deprecated. Other games still import from
+// vendor until they get the same treatment.
+import { asteroids } from "../games/asteroids/src";
 import { breakout } from "../vendor/frame-arcade-js/src/games/breakout";
 import { pong } from "../vendor/frame-arcade-js/src/games/pong";
 import { invaders } from "../vendor/frame-arcade-js/src/games/invaders";
-import { asteroids } from "../vendor/frame-arcade-js/src/games/asteroids";
 import { pacman } from "../vendor/frame-arcade-js/src/games/pacman";
 import { platformer } from "../vendor/frame-arcade-js/src/games/platformer";
 import { shooter } from "../vendor/frame-arcade-js/src/games/shooter";
@@ -19,7 +22,7 @@ import pacmanManifest from "../games/pacman/game.json";
 import platformerManifest from "../games/platformer/game.json";
 import shooterManifest from "../games/shooter/game.json";
 import stealthManifest from "../games/stealth/game.json";
-import type { GameDef } from "../vendor/frame-arcade-js/src/games/types";
+import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
   system: string;

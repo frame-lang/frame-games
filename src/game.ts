@@ -22,19 +22,45 @@ const ARTICLES = import.meta.glob<string>("../games/*/article.md", {
 // per-target type annotations, sometimes minor target-specific tweaks. We
 // swap the source displayed under each card when the active runtime
 // changes, while leaving the chart SVGs untouched.
-const FRAME_SOURCES_JS = import.meta.glob<string>(
+// Two source pools:
+//   1. games/<id>/src/<id>.fjs — sources owned by frame-games proper.
+//      Asteroids is here; other games migrate as they get their mobile pass.
+//   2. vendor/frame-arcade-js/src/games/<id>/<id>.fjs — still-vendored games.
+// findFrameJsSource() probes (1) first, falls back to (2).
+const FRAME_SOURCES_JS_LOCAL = import.meta.glob<string>(
+  "../games/*/src/*.fjs",
+  { eager: true, query: "?raw", import: "default" },
+);
+const FRAME_SOURCES_JS_VENDOR = import.meta.glob<string>(
   "../vendor/frame-arcade-js/src/games/*/*.fjs",
   { eager: true, query: "?raw", import: "default" },
 );
-const FRAME_SOURCES_GODOT = import.meta.glob<string>(
+// Godot Frame sources: games/<id>/frame/<id>.fgd locally, or
+// vendor/frame-arcade/ch??-<id>/frame/<id>.fgd in the deprecated submodule.
+const FRAME_SOURCES_GODOT_LOCAL = import.meta.glob<string>(
+  "../games/*/frame/*.fgd",
+  { eager: true, query: "?raw", import: "default" },
+);
+const FRAME_SOURCES_GODOT_VENDOR = import.meta.glob<string>(
   "../vendor/frame-arcade/*/frame/*.fgd",
   { eager: true, query: "?raw", import: "default" },
 );
-// The Godot chapter dirs are named ch01-pong / ch02-breakout / ..., so we
-// can't key by gameId directly. Pick the .fgd whose filename basename matches.
+
+function findFrameJsSource(gameId: string): string | undefined {
+  const localKey = `../games/${gameId}/src/${gameId}.fjs`;
+  if (FRAME_SOURCES_JS_LOCAL[localKey]) return FRAME_SOURCES_JS_LOCAL[localKey];
+  const vendorKey = `../vendor/frame-arcade-js/src/games/${gameId}/${gameId}.fjs`;
+  return FRAME_SOURCES_JS_VENDOR[vendorKey];
+}
+
+// The Godot chapter dirs in vendor are named ch01-pong / ch02-breakout / etc.
+// — locally we use games/<id>/frame/<id>.fgd. Probe local by id, then vendor
+// by filename basename match.
 function findGodotSource(gameId: string): string | undefined {
+  const localKey = `../games/${gameId}/frame/${gameId}.fgd`;
+  if (FRAME_SOURCES_GODOT_LOCAL[localKey]) return FRAME_SOURCES_GODOT_LOCAL[localKey];
   const suffix = `/${gameId}.fgd`;
-  for (const [path, src] of Object.entries(FRAME_SOURCES_GODOT)) {
+  for (const [path, src] of Object.entries(FRAME_SOURCES_GODOT_VENDOR)) {
     if (path.endsWith(suffix)) return src;
   }
   return undefined;
@@ -277,7 +303,7 @@ async function main(): Promise<void> {
   // tab change. If a runtime's source file isn't available, switching to it
   // is a no-op (the previous source stays visible) rather than blanking
   // the panel.
-  const fjs = FRAME_SOURCES_JS[`../vendor/frame-arcade-js/src/games/${manifest.id}/${manifest.id}.fjs`];
+  const fjs = findFrameJsSource(manifest.id);
   const fgd = findGodotSource(manifest.id);
   const sourcesByRuntime: Record<"js" | "godot", Map<string, string>> = {
     js: new Map((fjs ? splitFrameSystems(fjs) : []).map((s) => [s.system, s.source])),
@@ -315,23 +341,6 @@ async function main(): Promise<void> {
       // we're just placing the instance in the config.
       const sceneInstance = new def.Scene(machine);
       sceneRef.current = sceneInstance;
-      // Asteroids: rewrite the GameOver center text to reference the
-      // mobile restart-button glyph instead of the "R" key. The scene
-      // lives in the frozen frame-arcade-js vendor submodule so we
-      // can't edit the source — override the (private) centerMessage
-      // method on the instance instead. Method dispatch via `this`
-      // picks up the override on every per-frame call. Only the
-      // GameOver branch changes; everything else delegates to the
-      // original.
-      if (manifest.id === "asteroids") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const s: any = sceneInstance;
-        const orig = s.centerMessage.bind(s);
-        s.centerMessage = (state: string): string =>
-          state === "GameOver"
-            ? "GAME OVER\n\nPress ↻ to restart"
-            : orig(state);
-      }
       return sceneInstance;
     })(),
   });
