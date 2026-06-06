@@ -176,16 +176,26 @@ export class PageController {
         const __e = new PageControllerFrameEvent("switch_to_js", []);
         const __ctx = new PageControllerFrameContext(__e, null);
         this._context_stack.push(__ctx);
-        this.__kernel(__e);
-        return this._context_stack.pop()._return;
+        try {
+            this.__kernel(__e);
+            return this._context_stack.pop()._return;
+        } catch (__frame_err) {
+            this._context_stack.pop();
+            throw __frame_err;
+        }
     }
 
     switch_to_godot() {
         const __e = new PageControllerFrameEvent("switch_to_godot", []);
         const __ctx = new PageControllerFrameContext(__e, null);
         this._context_stack.push(__ctx);
-        this.__kernel(__e);
-        return this._context_stack.pop()._return;
+        try {
+            this.__kernel(__e);
+            return this._context_stack.pop()._return;
+        } catch (__frame_err) {
+            this._context_stack.pop();
+            throw __frame_err;
+        }
     }
 
     _state_JavaScript(__e, compartment) {
