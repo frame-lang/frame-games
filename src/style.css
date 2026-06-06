@@ -418,8 +418,14 @@ body.force-touch .toolbar-sep { display: none; }
 }
 .stage canvas {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
+  /* Let Phaser's FIT scale mode size the canvas — it writes inline
+   * styles to preserve the 720:480 aspect, letterboxing inside parent
+   * when parent isn't 720:480 (e.g. mobile landscape). The earlier
+   * `width/height: 100% !important` rule overrode that and stretched
+   * the canvas, visibly skewing the game in non-square containers. */
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
 }
 .godot-frame {
   width: 100%;
