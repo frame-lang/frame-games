@@ -315,6 +315,23 @@ async function main(): Promise<void> {
       // we're just placing the instance in the config.
       const sceneInstance = new def.Scene(machine);
       sceneRef.current = sceneInstance;
+      // Asteroids: rewrite the GameOver center text to reference the
+      // mobile restart-button glyph instead of the "R" key. The scene
+      // lives in the frozen frame-arcade-js vendor submodule so we
+      // can't edit the source — override the (private) centerMessage
+      // method on the instance instead. Method dispatch via `this`
+      // picks up the override on every per-frame call. Only the
+      // GameOver branch changes; everything else delegates to the
+      // original.
+      if (manifest.id === "asteroids") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s: any = sceneInstance;
+        const orig = s.centerMessage.bind(s);
+        s.centerMessage = (state: string): string =>
+          state === "GameOver"
+            ? "GAME OVER\n\nPress ↻ to restart"
+            : orig(state);
+      }
       return sceneInstance;
     })(),
   });

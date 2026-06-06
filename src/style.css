@@ -154,7 +154,7 @@ html {
     width: 100%;
     min-width: 0;
   }
-  /* Bottom bar: action buttons + FIRE in a single row. FIRE grows to
+  /* Bottom bar: action icons + FIRE in a single row. FIRE grows to
    * take more space (flex: 2) so it's the visually dominant target. */
   .mobile-controls {
     flex-wrap: nowrap;
@@ -163,14 +163,26 @@ html {
   .mobile-control {
     flex: 1 1 0;
     min-width: 0;
-    font-size: 12px;
-    min-height: 38px;
-    padding: 4px 6px;
-    letter-spacing: -0.02em;
+    /* Icons want to be visually substantial; FIRE label gets overridden
+     * below to a smaller text size since it's multi-char. */
+    font-size: 22px;
+    line-height: 1;
+    min-height: 52px;
+    padding: 6px 4px;
+    letter-spacing: 0;
+    /* Force text-style rendering for codepoints that default to emoji
+     * presentation (⏸ U+23F8, ⚡ U+26A1). Without this iOS Safari paints
+     * them as colored emoji at larger baselines, making the row look
+     * mismatched alongside the text-style ↻. */
+    font-variant-emoji: text;
+    -webkit-font-feature-settings: "ss20";
+    text-align: center;
   }
   .mobile-controls .mobile-control[aria-label="FIRE"] {
     flex: 2 1 0;
     font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.05em;
   }
 }
 

@@ -117,7 +117,12 @@ function buildButton(cfg: MobileButton): HTMLElement {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "mobile-control" + (cfg.hold ? " mobile-control-hold" : "");
-  btn.textContent = cfg.label;
+  // Single-codepoint icons (↻ / ⏸ / ⚡ etc.) get the U+FE0E variation
+  // selector appended so iOS Safari renders them as text-style glyphs
+  // instead of colored emoji. font-variant-emoji: text in CSS handles
+  // most modern browsers, but the variation selector works universally
+  // and costs nothing for non-emoji characters.
+  btn.textContent = cfg.label.length === 1 ? cfg.label + "︎" : cfg.label;
   btn.setAttribute("aria-label", cfg.label);
 
   const press = (): void => fireKey("keydown", cfg.key);
