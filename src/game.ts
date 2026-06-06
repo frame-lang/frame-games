@@ -124,6 +124,8 @@ const jsStage = document.getElementById("js-stage")!;
 const godotStage = document.getElementById("godot-stage")!;
 const panelEl = document.getElementById("fsm-panel")!;
 const articleEl = document.getElementById("article")!;
+const fsmAside = document.getElementById("state-machines")!;
+const fsmModeBtn = document.getElementById("fsm-mode-toggle") as HTMLButtonElement | null;
 
 const requestedId = new URLSearchParams(location.search).get("game") ?? "breakout";
 const entry = GAMES[requestedId] ?? GAMES.breakout;
@@ -445,6 +447,19 @@ async function main(): Promise<void> {
     new ResizeObserver(() => game.scale.refresh()).observe(playStage);
   }
 
+  // --- Diagram / code mode toggle. The aside starts in .fsm-mode-diagram
+  // (set in game.html). Clicking the button swaps it with .fsm-mode-code,
+  // and the CSS hides whichever pane isn't active. The label tracks what
+  // the NEXT click will reveal — "Show Code" while diagrams are visible,
+  // "Show Diagrams" while code is visible.
+  if (fsmModeBtn) {
+    fsmModeBtn.onclick = () => {
+      const showingDiagram = fsmAside.classList.contains("fsm-mode-diagram");
+      fsmAside.classList.toggle("fsm-mode-diagram", !showingDiagram);
+      fsmAside.classList.toggle("fsm-mode-code",     showingDiagram);
+      fsmModeBtn.textContent = showingDiagram ? "Show Diagrams" : "Show Code";
+    };
+  }
 }
 
 void main();

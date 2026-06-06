@@ -269,11 +269,11 @@ body.force-touch .toolbar-sep { display: none; }
 }
 .mobile-control {
   font-family: var(--mono, monospace);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
-  min-width: 56px;
-  min-height: 56px;
-  padding: 8px 14px;
+  min-width: 46px;
+  min-height: 46px;
+  padding: 6px 11px;
   background: var(--panel-2, #1a1f2e);
   color: var(--fg, #e6e1e8);
   border: 1px solid var(--line, #2b3242);
@@ -322,8 +322,26 @@ body.force-touch .fsm * {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 4px;
+  margin-bottom: 12px;
 }
+.fsm-mode-toggle {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: auto;
+}
+.fsm-mode-toggle:hover {
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+/* Diagram / code mode swap: show one or the other, never both. The .fsm
+ * aside starts in .fsm-mode-diagram (set on the element in game.html). */
+.fsm.fsm-mode-diagram .fsm-source { display: none; }
+.fsm.fsm-mode-code .fsm-chart { display: none; }
 .popout-status {
   margin-left: auto;
   color: var(--dim);

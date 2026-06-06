@@ -22,6 +22,6 @@
   ],
   "versions": [
     { "id": "js", "label": "JavaScript" },
-    { "id": "godot-wasm", "label": "Godot (WASM)", "entry": "/games/stealth/versions/godot-wasm/index.html" }
+    { "id": "godot-wasm", "label": "Godot", "entry": "/games/stealth/versions/godot-wasm/index.html" }
   ]
 }

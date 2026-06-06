@@ -13,6 +13,6 @@
   ],
   "versions": [
     { "id": "js", "label": "JavaScript" },
-    { "id": "godot-wasm", "label": "Godot (WASM)", "entry": "/games/pong/versions/godot-wasm/index.html" }
+    { "id": "godot-wasm", "label": "Godot", "entry": "/games/pong/versions/godot-wasm/index.html" }
   ]
 }
