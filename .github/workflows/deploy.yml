@@ -116,7 +116,9 @@ jobs:
         run: bash build/godot.sh all
 
       - name: Vite build
-        run: npm run build
+        # Custom domain (games.frame-lang.org) serves at the root, so override
+        # the default base="/frame-games/" used for the github.io path build.
+        run: VITE_BASE=/ npm run build
 
       # ----- publish dist/ as the Pages artifact -----
       - name: Upload Pages artifact
