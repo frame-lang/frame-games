@@ -225,4 +225,6 @@ operations:
     get_current_state_name(): string { @@:(@@:system.state.name) }
 ```
 
-`@@:system.state.name` evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, and so on. Calling `m.ship.get_current_state_name()` is a direct method call that returns that string.
+`@@:system.state.name` is a special property that evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, and so on. Calling `m.ship.get_current_state_name()` is a direct method call that returns that string to the engine.
+
+While the potential for abuse of operations is clear, as they give direct access to the system's domain, this is also the preferred means for external tools and other clients to peer into a system. As with many aspects of software development, developers should use language capabilities according to best practices and intended usage patterns.
