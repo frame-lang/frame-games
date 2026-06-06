@@ -96,6 +96,18 @@ html {
     padding: 12px 14px;
     gap: 14px;
   }
+  /* On phones, let the canvas fill the column width and derive its height
+   * from the 720/480 aspect ratio (instead of deriving width from --play-h,
+   * which clamps small on short viewports and leaves a narrow canvas
+   * sitting on a wide page). */
+  .play-stage {
+    width: 100%;
+  }
+  /* Sticky play column overlaps too much on phones — drop sticky so the
+   * page scrolls normally and the game canvas + button bar fit naturally. */
+  .play {
+    position: static;
+  }
 }
 
 /* Sticky play column: the canvas + version tabs + controls hint stay
