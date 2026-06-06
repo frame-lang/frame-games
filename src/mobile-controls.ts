@@ -124,7 +124,15 @@ export function mountMobileControls(
       try { btn.setPointerCapture(e.pointerId); } catch { /* no-op */ }
       btn.classList.add("active");
       press();
-      if (!cfg.hold) release();
+      // Tap buttons: hold the synthetic key down for ~80ms before releasing.
+      // Phaser fires its discrete `keydown-SPACE` listener the moment the
+      // event arrives, so it doesn't care about hold duration — but Godot's
+      // GDScript polls Input.is_key_pressed() each _physics_process frame
+      // and uses rising-edge detection (`if pressed and not _was_down`). A
+      // synchronous keydown+keyup on the same tick is invisible to that
+      // poll: the next physics frame already sees pressed=false. 80ms gives
+      // Godot ~5 frames of pressed state, plenty for the edge to register.
+      if (!cfg.hold) window.setTimeout(release, 80);
     });
     const up = (e: PointerEvent): void => {
       btn.classList.remove("active");
