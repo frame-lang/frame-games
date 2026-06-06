@@ -113,6 +113,39 @@ export interface MobileSlots {
   bottom?: HTMLElement;
 }
 
+// Tracks which hold buttons are currently considered "pressed" — we use
+// it to defend against the stuck-key race: rapid double-taps on a hold
+// button can dispatch a second pointerdown before the first pointerup
+// resolves, which without this map would leave one synthetic keydown
+// outstanding with no matching keyup, freezing turn/thrust on until the
+// next manual press. On every pointerdown we check this map and force a
+// release if the button is still marked pressed.
+const pressedButtons = new Map<HTMLElement, string>();
+
+function releaseButtonKey(btn: HTMLElement): void {
+  const code = pressedButtons.get(btn);
+  if (code == null) return;
+  btn.classList.remove("active");
+  fireKey("keyup", code);
+  pressedButtons.delete(btn);
+}
+
+function releaseAllPressedButtons(): void {
+  for (const btn of Array.from(pressedButtons.keys())) {
+    releaseButtonKey(btn);
+  }
+}
+
+// Wire global safety nets once (module-level). Backgrounding the page or
+// losing focus (e.g., the user pulls up Control Centre mid-thrust) should
+// release every held key so we don't return to a stuck state.
+if (typeof window !== "undefined") {
+  window.addEventListener("blur", releaseAllPressedButtons);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) releaseAllPressedButtons();
+  });
+}
+
 function buildButton(cfg: MobileButton): HTMLElement {
   const btn = document.createElement("button");
   btn.type = "button";
@@ -125,33 +158,50 @@ function buildButton(cfg: MobileButton): HTMLElement {
   btn.textContent = cfg.label.length === 1 ? cfg.label + "︎" : cfg.label;
   btn.setAttribute("aria-label", cfg.label);
 
-  const press = (): void => fireKey("keydown", cfg.key);
-  const release = (): void => fireKey("keyup", cfg.key);
-
   btn.addEventListener("pointerdown", (e) => {
     e.preventDefault();
+    // Defensive release: if a previous pointerdown's keydown hasn't been
+    // matched by a keyup yet (lost pointerup, rapid double-tap, etc.),
+    // release it before starting a new press to avoid stuck-down keys.
+    if (pressedButtons.has(btn)) {
+      releaseButtonKey(btn);
+    }
     try { btn.setPointerCapture(e.pointerId); } catch { /* no-op */ }
     btn.classList.add("active");
-    press();
-    // Tap buttons: hold the synthetic key down for ~80ms before releasing.
-    // Phaser fires its discrete `keydown-SPACE` listener the moment the
-    // event arrives, so it doesn't care about hold duration — but Godot's
-    // GDScript polls Input.is_key_pressed() each _physics_process frame
-    // and uses rising-edge detection (`if pressed and not _was_down`). A
-    // synchronous keydown+keyup on the same tick is invisible to that
-    // poll: the next physics frame already sees pressed=false. 80ms gives
-    // Godot ~5 frames of pressed state, plenty for the edge to register.
-    if (!cfg.hold) window.setTimeout(release, 80);
+    fireKey("keydown", cfg.key);
+    if (cfg.hold) {
+      pressedButtons.set(btn, cfg.key);
+    } else {
+      // Tap buttons: hold the synthetic key down for ~80ms before releasing.
+      // Phaser fires its discrete `keydown-SPACE` listener the moment the
+      // event arrives, so it doesn't care about hold duration — but Godot's
+      // GDScript polls Input.is_key_pressed() each _physics_process frame
+      // and uses rising-edge detection (`if pressed and not _was_down`). A
+      // synchronous keydown+keyup on the same tick is invisible to that
+      // poll: the next physics frame already sees pressed=false. 80ms gives
+      // Godot ~5 frames of pressed state, plenty for the edge to register.
+      window.setTimeout(() => fireKey("keyup", cfg.key), 80);
+    }
   });
   const up = (e: PointerEvent): void => {
-    btn.classList.remove("active");
     if (btn.hasPointerCapture(e.pointerId)) {
       try { btn.releasePointerCapture(e.pointerId); } catch { /* no-op */ }
     }
-    if (cfg.hold) release();
+    // Only hold buttons have an outstanding keydown to release here. Tap
+    // buttons release themselves via setTimeout above; we still clear the
+    // .active class for visual feedback.
+    if (cfg.hold) {
+      releaseButtonKey(btn);
+    } else {
+      btn.classList.remove("active");
+    }
   };
   btn.addEventListener("pointerup", up);
   btn.addEventListener("pointercancel", up);
+  // lostpointercapture fires whenever the browser drops the capture (e.g.
+  // OS gesture interrupts, dialog opens). Treat it as a release so we
+  // don't end up with an unmatched keydown.
+  btn.addEventListener("lostpointercapture", () => releaseButtonKey(btn));
 
   return btn;
 }
