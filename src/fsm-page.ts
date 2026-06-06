@@ -7,7 +7,6 @@ import { FsmPanel, type MachineView } from "./fsm-panel";
 import { GAMES, channelName } from "./games";
 
 const titleEl = document.getElementById("game-title")!;
-const teachesEl = document.getElementById("game-teaches")!;
 const panelEl = document.getElementById("fsm-panel")!;
 const statusEl = document.getElementById("status")!;
 
@@ -17,7 +16,6 @@ const def = entry.def;
 const manifest = entry.manifest;
 
 titleEl.textContent = `${manifest.title} — state machines`;
-teachesEl.textContent = manifest.teaches;
 document.title = `${manifest.title} state machines — Frame Games`;
 
 // No getState callbacks here — the panel is driven entirely by applyStates()
