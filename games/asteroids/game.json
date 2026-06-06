@@ -5,13 +5,13 @@
   "teaches": "State-local variables ($.timer) · HSM-inherited pause · push$/pop$ where the pop target varies across $Playing / $ShipDying / $WaveClear",
   "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause",
   "mobileButtons": [
-    { "label": "◀",       "key": "ArrowLeft",  "hold": true },
-    { "label": "▲",       "key": "ArrowUp",    "hold": true },
-    { "label": "▶",       "key": "ArrowRight", "hold": true },
-    { "label": "RESTART", "key": "KeyR",       "hold": false },
-    { "label": "PAUSE",   "key": "KeyP",       "hold": false },
-    { "label": "HYPER",   "key": "KeyH",       "hold": false },
-    { "label": "FIRE",    "key": "Space",      "hold": false }
+    { "label": "◀",    "key": "ArrowLeft",  "hold": true,  "position": "left" },
+    { "label": "▲",    "key": "ArrowUp",    "hold": true,  "position": "left" },
+    { "label": "▶",    "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "↻",    "key": "KeyR",       "hold": false, "position": "right" },
+    { "label": "⏸",    "key": "KeyP",       "hold": false, "position": "right" },
+    { "label": "⚡",   "key": "KeyH",       "hold": false, "position": "right" },
+    { "label": "FIRE", "key": "Space",      "hold": false, "position": "bottom" }
   ],
   "machines": [
     {

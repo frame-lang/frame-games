@@ -120,18 +120,44 @@ html {
     font-size: 13px;
     margin: 0 0 4px;
   }
+  /* Drop the fixed chart height on mobile — the previous 160px slot left
+   * dead space above and below diagrams shorter than that. Letting the
+   * chart auto-size to its SVG content reclaims the gap. */
   .fsm-chart {
-    height: 160px;
+    height: auto;
+    min-height: 0;
   }
   .fsm.fsm-mode-code .fsm-source {
     max-height: 65vh;
     margin-top: 4px;
   }
-  /* Force the touch-control bar to one row on phones. flex: 1 1 0 makes
-   * every button share the available width equally regardless of label
-   * length, min-width: 0 lets them shrink below their content's natural
-   * width, and nowrap kills the wrap. Trade-off: very narrow phones get
-   * cramped buttons, but the row stays predictable + visible. */
+  /* New touch layout: arrow column to the LEFT of the canvas, action
+   * column to the RIGHT, FIRE bar BELOW. Each side column stretches to
+   * the canvas's auto-derived height; its buttons share that height
+   * equally. The bottom slot keeps the original full-width row. */
+  .play-stage-row {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+  }
+  .mobile-controls-side {
+    flex: 0 0 52px;
+  }
+  .mobile-controls-side .mobile-control {
+    width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    font-size: 18px;
+    padding: 4px 2px;
+  }
+  /* Canvas takes whatever's left — overrides the earlier `width: 100%`
+   * mobile override since it now lives inside a flex row. */
+  .play-stage {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+  /* Bottom FIRE bar: single full-width button, vertically shrunk. */
   .mobile-controls {
     flex-wrap: nowrap;
     gap: 5px;
@@ -139,8 +165,8 @@ html {
   .mobile-control {
     flex: 1 1 0;
     min-width: 0;
-    font-size: 11px;
-    min-height: 40px;
+    font-size: 12px;
+    min-height: 34px;
     padding: 4px 6px;
     letter-spacing: -0.02em;
   }
@@ -292,15 +318,23 @@ body.force-touch .toolbar-sep { display: none; }
  * devices via media query, or anywhere via body.force-touch (?touch=1 URL
  * param for testing on desktop). When mounted but with no buttons (a game
  * that hasn't been adapted yet), :empty keeps it hidden. */
-.mobile-controls {
+.mobile-controls,
+.mobile-controls-side {
   display: none;
+  touch-action: none;
+}
+.mobile-controls {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
   margin-top: 12px;
-  touch-action: none;
 }
-.mobile-controls:empty {
+.mobile-controls-side {
+  flex-direction: column;
+  gap: 5px;
+}
+.mobile-controls:empty,
+.mobile-controls-side:empty {
   display: none !important;
 }
 .mobile-control {
@@ -329,6 +363,7 @@ body.force-touch .toolbar-sep { display: none; }
 @media (hover: none) and (pointer: coarse) {
   .controls { display: none; }
   .mobile-controls:not(:empty) { display: flex; }
+  .mobile-controls-side:not(:empty) { display: flex; }
 
   /* iOS Safari fires the long-press callout menu (Copy / Look Up /
    * Translate / Share) on any selectable text or interactive content —
@@ -344,6 +379,7 @@ body.force-touch .toolbar-sep { display: none; }
 }
 body.force-touch .controls { display: none; }
 body.force-touch .mobile-controls:not(:empty) { display: flex; }
+body.force-touch .mobile-controls-side:not(:empty) { display: flex; }
 body.force-touch .play,
 body.force-touch .play *,
 body.force-touch .fsm,

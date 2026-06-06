@@ -118,7 +118,11 @@ const STATE_ACCESSORS: Record<
 
 const titleEl = document.getElementById("game-title")!;
 const controlsEl = document.getElementById("controls")!;
-const mobileControlsEl = document.getElementById("mobile-controls")!;
+const mobileSlots = {
+  left:   document.getElementById("mobile-controls-left")   ?? undefined,
+  right:  document.getElementById("mobile-controls-right")  ?? undefined,
+  bottom: document.getElementById("mobile-controls")        ?? undefined,
+};
 const tabsEl = document.getElementById("version-tabs")!;
 const jsStage = document.getElementById("js-stage")!;
 const godotStage = document.getElementById("godot-stage")!;
@@ -222,11 +226,13 @@ async function main(): Promise<void> {
   document.title = `${manifest.title} — Frame Games`;
   renderTabs("js");
 
-  // Touch controls: mount per-game button bar (CSS controls visibility —
-  // hidden on desktop, shown on devices with no hover + coarse pointer, OR
-  // when body.force-touch is set via the ?touch=1 URL param for testing).
+  // Touch controls: mount per-game button bar. Each button declares a
+  // `position` (left / right / bottom) and the mount routes it to the
+  // matching slot. CSS controls visibility — hidden on desktop, shown on
+  // devices with no hover + coarse pointer, OR when body.force-touch is
+  // set via the ?touch=1 URL param for testing.
   if (manifest.mobileButtons && manifest.mobileButtons.length > 0) {
-    mountMobileControls(manifest.mobileButtons, mobileControlsEl);
+    mountMobileControls(manifest.mobileButtons, mobileSlots);
   }
   if (new URLSearchParams(location.search).get("touch") === "1") {
     document.body.classList.add("force-touch");

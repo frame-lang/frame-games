@@ -104,46 +104,65 @@ function fireKey(type: "keydown" | "keyup", code: string): void {
   }
 }
 
+/** Mount points for the touch buttons. A button's `position` field
+ * (defaulting to "bottom") picks which slot it lands in. Missing slots are
+ * tolerated — buttons targeting an unmounted slot are silently skipped. */
+export interface MobileSlots {
+  left?: HTMLElement;
+  right?: HTMLElement;
+  bottom?: HTMLElement;
+}
+
+function buildButton(cfg: MobileButton): HTMLElement {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "mobile-control" + (cfg.hold ? " mobile-control-hold" : "");
+  btn.textContent = cfg.label;
+  btn.setAttribute("aria-label", cfg.label);
+
+  const press = (): void => fireKey("keydown", cfg.key);
+  const release = (): void => fireKey("keyup", cfg.key);
+
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    try { btn.setPointerCapture(e.pointerId); } catch { /* no-op */ }
+    btn.classList.add("active");
+    press();
+    // Tap buttons: hold the synthetic key down for ~80ms before releasing.
+    // Phaser fires its discrete `keydown-SPACE` listener the moment the
+    // event arrives, so it doesn't care about hold duration — but Godot's
+    // GDScript polls Input.is_key_pressed() each _physics_process frame
+    // and uses rising-edge detection (`if pressed and not _was_down`). A
+    // synchronous keydown+keyup on the same tick is invisible to that
+    // poll: the next physics frame already sees pressed=false. 80ms gives
+    // Godot ~5 frames of pressed state, plenty for the edge to register.
+    if (!cfg.hold) window.setTimeout(release, 80);
+  });
+  const up = (e: PointerEvent): void => {
+    btn.classList.remove("active");
+    if (btn.hasPointerCapture(e.pointerId)) {
+      try { btn.releasePointerCapture(e.pointerId); } catch { /* no-op */ }
+    }
+    if (cfg.hold) release();
+  };
+  btn.addEventListener("pointerup", up);
+  btn.addEventListener("pointercancel", up);
+
+  return btn;
+}
+
 export function mountMobileControls(
   buttons: readonly MobileButton[],
-  into: HTMLElement,
+  slots: MobileSlots,
 ): void {
-  into.replaceChildren();
+  // Clear every provided slot first so re-mounts don't accumulate.
+  for (const slot of [slots.left, slots.right, slots.bottom]) {
+    slot?.replaceChildren();
+  }
   for (const cfg of buttons) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "mobile-control" + (cfg.hold ? " mobile-control-hold" : "");
-    btn.textContent = cfg.label;
-    btn.setAttribute("aria-label", cfg.label);
-
-    const press = (): void => fireKey("keydown", cfg.key);
-    const release = (): void => fireKey("keyup", cfg.key);
-
-    btn.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      try { btn.setPointerCapture(e.pointerId); } catch { /* no-op */ }
-      btn.classList.add("active");
-      press();
-      // Tap buttons: hold the synthetic key down for ~80ms before releasing.
-      // Phaser fires its discrete `keydown-SPACE` listener the moment the
-      // event arrives, so it doesn't care about hold duration — but Godot's
-      // GDScript polls Input.is_key_pressed() each _physics_process frame
-      // and uses rising-edge detection (`if pressed and not _was_down`). A
-      // synchronous keydown+keyup on the same tick is invisible to that
-      // poll: the next physics frame already sees pressed=false. 80ms gives
-      // Godot ~5 frames of pressed state, plenty for the edge to register.
-      if (!cfg.hold) window.setTimeout(release, 80);
-    });
-    const up = (e: PointerEvent): void => {
-      btn.classList.remove("active");
-      if (btn.hasPointerCapture(e.pointerId)) {
-        try { btn.releasePointerCapture(e.pointerId); } catch { /* no-op */ }
-      }
-      if (cfg.hold) release();
-    };
-    btn.addEventListener("pointerup", up);
-    btn.addEventListener("pointercancel", up);
-
-    into.appendChild(btn);
+    const where = cfg.position ?? "bottom";
+    const target = slots[where];
+    if (!target) continue;
+    target.appendChild(buildButton(cfg));
   }
 }

@@ -44,6 +44,10 @@ export interface MobileButton {
   label: string;
   key: string;
   hold: boolean;
+  /** Where the button mounts on the touch layout — defaults to "bottom"
+   * (the horizontal bar under the canvas). "left" / "right" mount into
+   * the side columns that flank the canvas on phones (D-pad style). */
+  position?: "left" | "right" | "bottom";
 }
 
 export interface GameManifest {
