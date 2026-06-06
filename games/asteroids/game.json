@@ -6,12 +6,12 @@
   "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause",
   "mobileButtons": [
     { "label": "◀",       "key": "ArrowLeft",  "hold": true },
-    { "label": "▶",       "key": "ArrowRight", "hold": true },
     { "label": "▲",       "key": "ArrowUp",    "hold": true },
-    { "label": "FIRE",    "key": "Space",      "hold": false },
-    { "label": "HYPER",   "key": "KeyH",       "hold": false },
+    { "label": "▶",       "key": "ArrowRight", "hold": true },
+    { "label": "RESTART", "key": "KeyR",       "hold": false },
     { "label": "PAUSE",   "key": "KeyP",       "hold": false },
-    { "label": "RESTART", "key": "KeyR",       "hold": false }
+    { "label": "HYPER",   "key": "KeyH",       "hold": false },
+    { "label": "FIRE",    "key": "Space",      "hold": false }
   ],
   "machines": [
     {
