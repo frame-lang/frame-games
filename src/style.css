@@ -127,6 +127,23 @@ html {
     max-height: 65vh;
     margin-top: 4px;
   }
+  /* Force the touch-control bar to one row on phones. flex: 1 1 0 makes
+   * every button share the available width equally regardless of label
+   * length, min-width: 0 lets them shrink below their content's natural
+   * width, and nowrap kills the wrap. Trade-off: very narrow phones get
+   * cramped buttons, but the row stays predictable + visible. */
+  .mobile-controls {
+    flex-wrap: nowrap;
+    gap: 5px;
+  }
+  .mobile-control {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 11px;
+    min-height: 40px;
+    padding: 4px 6px;
+    letter-spacing: -0.02em;
+  }
 }
 
 /* Sticky play column: the canvas + version tabs + controls hint stay
