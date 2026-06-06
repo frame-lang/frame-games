@@ -544,11 +544,13 @@ body.fsm-page-body {
 .fsm-chart g.node.active ellipse,
 .fsm-chart g.node.active polygon,
 .fsm-chart g.node.active path {
+  fill: #1e3a8a !important;
+  stroke: var(--accent);
   filter: drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 7px var(--accent));
 }
 .fsm-chart g.node.active text {
   font-weight: 700;
-  fill: var(--accent) !important;
+  fill: #ffffff !important;
 }
 
 /* ---- index grid ---- */
