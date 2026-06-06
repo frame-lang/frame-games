@@ -87,6 +87,8 @@ html {
   max-width: 1600px;
   margin: 0 auto;
 }
+/* Width-driven mobile rules (apply on narrow viewports regardless of
+ * whether it's a phone or a narrow desktop window). */
 @media (max-width: 640px) {
   .game-layout {
     padding: 14px;
@@ -96,20 +98,6 @@ html {
     padding: 12px 14px;
     gap: 14px;
   }
-  /* On phones, let the canvas fill the column width and derive its height
-   * from the 720/480 aspect ratio (instead of deriving width from --play-h,
-   * which clamps small on short viewports and leaves a narrow canvas
-   * sitting on a wide page). */
-  .play-stage {
-    width: 100%;
-  }
-  /* Sticky play column overlaps too much on phones — drop sticky so the
-   * page scrolls normally and the game canvas + button bar fit naturally. */
-  .play {
-    position: static;
-  }
-  /* Tighten the FSM cards so two diagrams + the game canvas can share
-   * the viewport. In code mode (chart hidden) the source pane grows. */
   #fsm-panel {
     gap: 10px;
   }
@@ -120,9 +108,6 @@ html {
     font-size: 13px;
     margin: 0 0 4px;
   }
-  /* Drop the fixed chart height on mobile — the previous 160px slot left
-   * dead space above and below diagrams shorter than that. Letting the
-   * chart auto-size to its SVG content reclaims the gap. */
   .fsm-chart {
     height: auto;
     min-height: 0;
@@ -131,12 +116,23 @@ html {
     max-height: 65vh;
     margin-top: 4px;
   }
-  /* Touch layout: arrow column to the LEFT of the canvas; action buttons
-   * + FIRE share the BOTTOM bar. Grid is more predictable than flex
-   * here — fixed-width left column, canvas fills the rest, aspect-ratio
-   * on the canvas derives its height reliably. Right column is empty
-   * (its buttons moved to the bottom bar) so :empty hides it and the
-   * grid collapses to 2 tracks. */
+}
+
+/* Touch-driven layout rules (apply on any touch device, any orientation —
+ * iPhone landscape is ~926px wide so width-based queries don't fire there,
+ * even though it's clearly a phone). Sticky-play is dropped here, not in
+ * the narrow-viewport block, because landscape phones need it dropped too. */
+@media (hover: none) and (pointer: coarse) {
+  .play {
+    position: static;
+  }
+  .play-stage {
+    width: 100%;
+  }
+  /* Portrait touch layout: arrow column LEFT of the canvas, action
+   * buttons + FIRE share the bottom bar. CSS grid with a fixed left
+   * track keeps the canvas width deterministic and aspect-ratio
+   * derives its height reliably. */
   .play-stage-row {
     display: grid;
     grid-template-columns: 52px 1fr;
@@ -154,8 +150,7 @@ html {
     width: 100%;
     min-width: 0;
   }
-  /* Bottom bar: action icons + FIRE in a single row. FIRE grows to
-   * take more space (flex: 2) so it's the visually dominant target. */
+  /* Bottom bar: action icons + FIRE in a single row. */
   .mobile-controls {
     flex-wrap: nowrap;
     gap: 5px;
@@ -163,17 +158,11 @@ html {
   .mobile-control {
     flex: 1 1 0;
     min-width: 0;
-    /* Icons want to be visually substantial; FIRE label gets overridden
-     * below to a smaller text size since it's multi-char. */
     font-size: 44px;
     line-height: 1;
     min-height: 72px;
     padding: 6px 4px;
     letter-spacing: 0;
-    /* Force text-style rendering for codepoints that default to emoji
-     * presentation (⏸ U+23F8, ⚡ U+26A1). Without this iOS Safari paints
-     * them as colored emoji at larger baselines, making the row look
-     * mismatched alongside the text-style ↻. */
     font-variant-emoji: text;
     -webkit-font-feature-settings: "ss20";
     text-align: center;
@@ -184,6 +173,89 @@ html {
     font-size: 18px;
     letter-spacing: 0.05em;
   }
+}
+
+/* Touch + landscape: 3-column layout. Action buttons re-flow from the
+ * bottom bar into a RIGHT column so canvas + all controls fit one viewport
+ * with the FSM panel scrollable below. play-stage-row uses display:
+ * contents so its children participate in .play's grid, letting us place
+ * the bottom #mobile-controls element into a column slot via grid-area. */
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  .play {
+    display: grid;
+    grid-template-columns: 52px 1fr 64px;
+    grid-template-areas:
+      "tbar  tbar    tbar"
+      "left  canvas  right";
+    column-gap: 6px;
+    row-gap: 6px;
+    /* Cap at viewport so FSM panel + article scroll normally below. */
+    height: calc(100vh - 70px);
+    padding-top: 8px;
+    padding-bottom: 0;
+  }
+  .play-toolbar { grid-area: tbar; }
+  .play-stage-row { display: contents; }
+  #mobile-controls-left { grid-area: left; }
+  .play-stage {
+    grid-area: canvas;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    aspect-ratio: auto;  /* let it fill the grid cell instead of forcing 720/480 */
+    margin-inline: 0;
+  }
+  #mobile-controls-right { display: none !important; }
+  /* Bottom bar reflows into the right column as a vertical strip. */
+  #mobile-controls {
+    grid-area: right;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    margin-top: 0;
+    gap: 5px;
+    height: 100%;
+  }
+  #mobile-controls .mobile-control {
+    width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    font-size: 28px;
+    padding: 4px 2px;
+  }
+  #mobile-controls .mobile-control[aria-label="FIRE"] {
+    font-size: 14px;
+    flex: 1 1 0;  /* override portrait's flex: 2 — uniform vertical strips */
+  }
+  .resize-handle { display: none; }
+}
+
+/* Force-touch testing on desktop mirrors the touch layout. */
+body.force-touch .play { position: static; }
+body.force-touch .play-stage-row {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 6px;
+  align-items: stretch;
+}
+body.force-touch .play-stage { width: 100%; min-width: 0; }
+body.force-touch .mobile-controls {
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+body.force-touch .mobile-control {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 44px;
+  line-height: 1;
+  min-height: 72px;
+  padding: 6px 4px;
+  font-variant-emoji: text;
+  text-align: center;
+}
+body.force-touch .mobile-controls .mobile-control[aria-label="FIRE"] {
+  flex: 2 1 0;
+  font-weight: 700;
+  font-size: 18px;
 }
 
 /* Sticky play column: the canvas + version tabs + controls hint stay
