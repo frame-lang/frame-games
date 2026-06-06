@@ -279,9 +279,29 @@ html {
 @media (hover: none) and (pointer: coarse) {
   .controls { display: none; }
   .mobile-controls:not(:empty) { display: flex; }
+
+  /* iOS Safari fires the long-press callout menu (Copy / Look Up /
+   * Translate / Share) on any selectable text or interactive content —
+   * including the game canvas and the FSM diagram's SVG text. Suppress
+   * it across the gameplay surfaces; the article keeps native selection
+   * so readers can copy quotes / code snippets. */
+  .play, .play *,
+  .fsm, .fsm * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 body.force-touch .controls { display: none; }
 body.force-touch .mobile-controls:not(:empty) { display: flex; }
+body.force-touch .play,
+body.force-touch .play *,
+body.force-touch .fsm,
+body.force-touch .fsm * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 
 /* ---- FSM panel: horizontal scroller of machine cards ---- */
 .fsm-header {
