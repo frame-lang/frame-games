@@ -123,7 +123,6 @@ const tabsEl = document.getElementById("version-tabs")!;
 const jsStage = document.getElementById("js-stage")!;
 const godotStage = document.getElementById("godot-stage")!;
 const panelEl = document.getElementById("fsm-panel")!;
-const popoutBtn = document.getElementById("popout") as HTMLButtonElement | null;
 const articleEl = document.getElementById("article")!;
 
 const requestedId = new URLSearchParams(location.search).get("game") ?? "breakout";
@@ -446,16 +445,6 @@ async function main(): Promise<void> {
     new ResizeObserver(() => game.scale.refresh()).observe(playStage);
   }
 
-  // --- Pop-out button: opens fsm.html in a named window (reuses if already open).
-  if (popoutBtn) {
-    popoutBtn.onclick = () => {
-      window.open(
-        `${import.meta.env.BASE_URL}fsm.html?game=${encodeURIComponent(manifest.id)}`,
-        `fsm-${manifest.id}`,
-        "width=1400,height=900",
-      );
-    };
-  }
 }
 
 void main();

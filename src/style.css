@@ -324,27 +324,6 @@ body.force-touch .fsm * {
   gap: 12px;
   margin-bottom: 4px;
 }
-.popout-btn {
-  /* Pop-out is mobile-only — on desktop the FSM panel already sits
-   * beside the game, so popping it into a separate window is redundant.
-   * On phones the panel is below the fold; the new tab is useful there. */
-  display: none;
-  background: transparent;
-  color: var(--accent);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.popout-btn:hover {
-  background: var(--panel-2);
-  border-color: var(--accent);
-}
-@media (hover: none) and (pointer: coarse) {
-  .popout-btn { display: inline-block; }
-}
-body.force-touch .popout-btn { display: inline-block; }
 .popout-status {
   margin-left: auto;
   color: var(--dim);
