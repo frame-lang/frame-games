@@ -184,7 +184,7 @@ html {
  * the bottom #mobile-controls element into a column slot via grid-area. */
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) {
   .play {
-    position: static;  /* drop sticky for landscape; everything fits in viewport */
+    position: static;  /* drop sticky for landscape; page scrolls normally */
     display: grid;
     grid-template-columns: 52px 1fr 64px;
     grid-template-areas:
@@ -192,10 +192,12 @@ html {
       "left  canvas  right";
     column-gap: 6px;
     row-gap: 6px;
-    /* Cap at viewport so FSM panel + article scroll normally below. */
-    height: calc(100vh - 70px);
+    /* align-items: start so side button columns size to their content
+     * instead of stretching to match canvas height (which is tall on a
+     * landscape phone — aspect-ratio 720/480 × ~800px column = ~530px). */
+    align-items: start;
     padding-top: 8px;
-    padding-bottom: 0;
+    padding-bottom: 14px;
   }
   .play-toolbar { grid-area: tbar; }
   .play-stage-row { display: contents; }
@@ -203,9 +205,9 @@ html {
   .play-stage {
     grid-area: canvas;
     width: 100%;
-    height: 100%;
-    max-height: 100%;
-    aspect-ratio: auto;  /* let it fill the grid cell instead of forcing 720/480 */
+    /* No fixed/cap height — let aspect-ratio derive height from width and
+     * let the page scroll past the canvas to reveal FSM panel + article
+     * below. */
     margin-inline: 0;
   }
   #mobile-controls-right { display: none !important; }
