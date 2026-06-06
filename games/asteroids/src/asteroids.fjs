@@ -162,10 +162,16 @@
         }
 
         $Dead {
+            // New game: route through $Respawning so the scene's
+            // host.reset_ship() fires (recentres the ship, zeroes
+            // velocity, clears bullets) and the player gets the same
+            // brief invuln beat as a mid-game respawn. Going Dead →
+            // Alive directly would skip reset_ship() and the player
+            // would resume with the dying ship's last position + vector.
             respawn() {
                 this.lives_remaining = this.starting_lives
                 this.hyperspaces_remaining = this.starting_hyperspaces
-                -> $Alive
+                -> $Respawning
             }
 
             can_fire(): bool       { @@:(false) }

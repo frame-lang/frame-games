@@ -230,10 +230,16 @@
         # $Dead — out of lives
         # ------------------------------------------------------------
         $Dead {
+            # New game: route through $Respawning so the host's
+            # reset_ship() fires (recentres the ship, zeroes velocity,
+            # clears bullets) and the player gets the same brief invuln
+            # beat as a mid-game respawn. Going Dead → Alive directly
+            # would skip reset_ship() and the player would resume with
+            # the dying ship's last position + vector.
             respawn() {
                 self.lives_remaining = self.starting_lives
                 self.hyperspaces_remaining = self.starting_hyperspaces
-                -> $Alive
+                -> $Respawning
             }
 
             can_fire(): bool       { @@:(false) }
