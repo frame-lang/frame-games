@@ -53,7 +53,7 @@ jobs:
             ~/.cargo/bin/framec
             ~/.cargo/registry
             ~/.cargo/git
-          key: framec-${{ runner.os }}-v4.3.1
+          key: framec-${{ runner.os }}-v4.4.0
 
       - name: Install framec
         if: steps.cache-framec.outputs.cache-hit != 'true'
