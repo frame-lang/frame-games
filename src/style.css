@@ -190,7 +190,7 @@ html {
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) {
   html, body {
     overflow: hidden;
-    height: 100vh;
+    height: 100dvh;
   }
   .topbar,
   .play-toolbar,
@@ -205,7 +205,7 @@ html {
   .game-layout {
     padding: 0;
     gap: 0;
-    height: 100vh;
+    height: 100dvh;
   }
   .play {
     position: static;
@@ -213,7 +213,7 @@ html {
     grid-template-columns: 52px 1fr 64px;
     grid-template-areas: "left canvas right";
     column-gap: 6px;
-    height: 100vh;
+    height: 100dvh;
     width: 100%;
     padding: 0;
     /* align-items: stretch so left + right columns match canvas height —
