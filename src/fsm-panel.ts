@@ -145,10 +145,11 @@ export class FsmPanel {
 
       if (this.reorderable) card.appendChild(this.buildMoveBar(card));
 
-      // Card heading is just the system name — explanations live in the
-      // article below, not duplicated in the card.
+      // Card heading is the system name + " Controller" suffix — labels
+      // these as the Frame-authored *controllers* (FSMs), not just abstract
+      // system names. Explanations live in the article below, not the card.
       const h = document.createElement("h3");
-      h.textContent = view.system;
+      h.textContent = `${view.system} Controller`;
       card.appendChild(h);
 
       const chartEl = document.createElement("div");

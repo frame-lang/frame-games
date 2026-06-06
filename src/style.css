@@ -319,6 +319,7 @@ body.force-touch .mobile-controls .mobile-control[aria-label="FIRE"] {
    it. `--play-h` is the canvas height; ~160 px covers the toolbar +
    controls hint + resize handle + padding above and below. */
 #state-machines,
+#fsm-panel,
 #article {
   scroll-margin-top: calc(var(--play-h, 250px) + 160px);
 }
