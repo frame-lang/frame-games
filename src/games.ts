@@ -33,6 +33,19 @@ export interface VersionMeta {
   entry?: string; // public path to the version's playable, when external
 }
 
+/**
+ * One on-screen control rendered on touch devices in place of the
+ * (keyboard-only) controls text. `key` is a KeyboardEvent.code; the mobile
+ * mount turns presses into synthetic keydown/keyup events so the existing
+ * scene input code works unchanged. `hold: true` is press-and-hold (turn,
+ * thrust); `hold: false` is a one-shot tap (fire, pause, restart).
+ */
+export interface MobileButton {
+  label: string;
+  key: string;
+  hold: boolean;
+}
+
 export interface GameManifest {
   id: string;
   title: string;
@@ -41,6 +54,9 @@ export interface GameManifest {
   controls: string;
   machines: readonly MachineMeta[];
   versions: readonly VersionMeta[];
+  /** Optional per-game touch-device control bar. Omit to leave mobile users
+   * with the keyboard-only instruction text (i.e., not yet adapted). */
+  mobileButtons?: readonly MobileButton[];
 }
 
 export interface GameEntry {

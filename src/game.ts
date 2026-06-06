@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { marked } from "marked";
 import { FsmPanel, liveState, splitFrameSystems, type MachineView } from "./fsm-panel";
 import { GAMES, channelName, versionEntry } from "./games";
+import { mountMobileControls } from "./mobile-controls";
 import { PageController } from "./page.machine.js";
 
 // Per-game long-form articles. Vite eager-loads every games/<id>/article.md as
@@ -118,6 +119,7 @@ const STATE_ACCESSORS: Record<
 const titleEl = document.getElementById("game-title")!;
 const teachesEl = document.getElementById("game-teaches")!;
 const controlsEl = document.getElementById("controls")!;
+const mobileControlsEl = document.getElementById("mobile-controls")!;
 const tabsEl = document.getElementById("version-tabs")!;
 const jsStage = document.getElementById("js-stage")!;
 const godotStage = document.getElementById("godot-stage")!;
@@ -220,6 +222,16 @@ async function main(): Promise<void> {
   controlsEl.textContent = manifest.controls;
   document.title = `${manifest.title} — Frame Games`;
   renderTabs("js");
+
+  // Touch controls: mount per-game button bar (CSS controls visibility —
+  // hidden on desktop, shown on devices with no hover + coarse pointer, OR
+  // when body.force-touch is set via the ?touch=1 URL param for testing).
+  if (manifest.mobileButtons && manifest.mobileButtons.length > 0) {
+    mountMobileControls(manifest.mobileButtons, mobileControlsEl);
+  }
+  if (new URLSearchParams(location.search).get("touch") === "1") {
+    document.body.classList.add("force-touch");
+  }
 
   // Long-form article (optional): hidden unless games/<id>/article.md exists.
   // Markdown image refs like ![](/games/asteroids/images/x.svg) are static

@@ -4,6 +4,15 @@
   "summary": "State-local variables on a timed mode, an HSM in-game parent whose pause handler the three children inherit, and push$/pop$ pause where the pop target genuinely varies.",
   "teaches": "State-local variables ($.timer) · HSM-inherited pause · push$/pop$ where the pop target varies across $Playing / $ShipDying / $WaveClear",
   "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause",
+  "mobileButtons": [
+    { "label": "◀",       "key": "ArrowLeft",  "hold": true },
+    { "label": "▶",       "key": "ArrowRight", "hold": true },
+    { "label": "▲",       "key": "ArrowUp",    "hold": true },
+    { "label": "FIRE",    "key": "Space",      "hold": false },
+    { "label": "HYPER",   "key": "KeyH",       "hold": false },
+    { "label": "PAUSE",   "key": "KeyP",       "hold": false },
+    { "label": "RESTART", "key": "KeyR",       "hold": false }
+  ],
   "machines": [
     {
       "system": "AsteroidsGame",
