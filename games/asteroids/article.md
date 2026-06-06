@@ -225,15 +225,4 @@ operations:
     get_current_state_name(): string { @@:(@@:system.state.name) }
 ```
 
-`@@:system.state.name` evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, and so on. Calling `m.ship.get_current_state_name()` is a direct method call that returns that string. The state machine isn't involved at all, which is why operations don't appear in the engine ↔ Ship interaction earlier in this article — they sit outside that contract.
-
-The power of operations is also the risk. Routing logic through them makes it invisible to the state machine: the diagram won't show it, transitions can't fire from it, and you've broken the encapsulation that lets a Frame system be portable across engines. **If a method might change state, keep it on the interface.** Operations are for things that don't.
-
-Where they earn their keep is **non-disruptive, minimally-invasive reads** — questions the engine, the visualizer, or a debug log wants to ask the system without driving its state machine. `get_current_state_name()` is the canonical example: every consumer needs it, none of them want to mutate anything when they ask. Other good fits are returning a computed value or wrapping a domain field for a stable read-only surface.
-
-A rule of thumb for what goes where in a Frame system:
-
-- **`interface`** — events that may change state or trigger transitions
-- **`operations`** — pure reads or computed values that don't drive the machine
-- **`$.<name>`** state-local variables — timers and counters scoped to one state's lifetime
-- **`domain`** — values that persist for the whole system's lifetime
+`@@:system.state.name` evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, and so on. Calling `m.ship.get_current_state_name()` is a direct method call that returns that string.
