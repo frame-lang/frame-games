@@ -177,41 +177,70 @@ html {
   }
 }
 
-/* Touch + landscape: 3-column layout. Action buttons re-flow from the
- * bottom bar into a RIGHT column so canvas + all controls fit one viewport
- * with the FSM panel scrollable below. play-stage-row uses display:
- * contents so its children participate in .play's grid, letting us place
- * the bottom #mobile-controls element into a column slot via grid-area. */
+/* Touch + landscape: GAME ONLY. The viewport is filled by canvas + side
+ * button columns; the topbar, version tabs, FSM panel, article, and even
+ * the body's scroll are all suppressed. Rotate to portrait for anything
+ * besides playing. play-stage-row uses display: contents so its children
+ * participate in .play's grid; bottom #mobile-controls reflows into the
+ * right column via grid-area (no re-mount). */
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  html, body {
+    overflow: hidden;
+    height: 100vh;
+  }
+  .topbar,
+  .play-toolbar,
+  .controls,
+  .resize-handle,
+  #mobile-controls-right,
+  .fsm,
+  .article {
+    display: none !important;
+  }
+  /* .game-layout becomes the viewport-sized container for .play. */
+  .game-layout {
+    padding: 0;
+    gap: 0;
+    height: 100vh;
+  }
   .play {
-    position: static;  /* drop sticky for landscape; page scrolls normally */
+    position: static;
     display: grid;
     grid-template-columns: 52px 1fr 64px;
-    grid-template-areas:
-      "tbar  tbar    tbar"
-      "left  canvas  right";
+    grid-template-areas: "left canvas right";
     column-gap: 6px;
-    row-gap: 6px;
-    /* align-items: start so side button columns size to their content
-     * instead of stretching to match canvas height (which is tall on a
-     * landscape phone — aspect-ratio 720/480 × ~800px column = ~530px). */
-    align-items: start;
-    padding-top: 8px;
-    padding-bottom: 14px;
+    height: 100vh;
+    width: 100%;
+    padding: 0;
+    /* align-items: stretch so left + right columns match canvas height —
+     * the buttons distribute across the full viewport. */
+    align-items: stretch;
   }
-  .play-toolbar { grid-area: tbar; }
   .play-stage-row { display: contents; }
-  #mobile-controls-left { grid-area: left; }
+  #mobile-controls-left {
+    grid-area: left;
+    flex-direction: column;
+    height: 100%;
+    gap: 5px;
+  }
+  #mobile-controls-left .mobile-control {
+    width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    font-size: 28px;
+    padding: 4px 2px;
+  }
   .play-stage {
     grid-area: canvas;
     width: 100%;
-    /* No fixed/cap height — let aspect-ratio derive height from width and
-     * let the page scroll past the canvas to reveal FSM panel + article
-     * below. */
+    height: 100%;
+    aspect-ratio: auto;  /* Phaser FIT mode handles the game's 720:480 inside */
     margin-inline: 0;
+    border-radius: 0;
   }
-  #mobile-controls-right { display: none !important; }
-  /* Bottom bar reflows into the right column as a vertical strip. */
+  /* Bottom bar reflows into the right column as a vertical strip. FIRE
+   * gets flex: 3 (≈1/3 of column height); the three icons share flex: 2
+   * each (≈22% each). Same flex grammar as portrait, just rotated. */
   #mobile-controls {
     grid-area: right;
     flex-direction: column;
@@ -222,16 +251,16 @@ html {
   }
   #mobile-controls .mobile-control {
     width: 100%;
-    flex: 1 1 0;
+    flex: 2 1 0;
     min-height: 0;
     font-size: 28px;
     padding: 4px 2px;
   }
   #mobile-controls .mobile-control[aria-label="FIRE"] {
-    font-size: 14px;
-    flex: 1 1 0;  /* override portrait's flex: 2 — uniform vertical strips */
+    flex: 3 1 0;
+    font-size: 16px;
+    font-weight: 700;
   }
-  .resize-handle { display: none; }
 }
 
 /* Force-touch testing on desktop mirrors the touch layout. */
