@@ -138,7 +138,21 @@ html {
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
+/* Toolbar links carry both labels — full text for desktop, short text for
+ * mobile — and the active media query picks which span is visible. */
+.toolbar-link .short { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .toolbar-link .full { display: none; }
+  .toolbar-link .short { display: inline; }
+  /* The "|" separator between tabs and shortcut links is meaningless once
+   * the row wraps — hide it on phones. */
+  .toolbar-sep { display: none; }
+}
+body.force-touch .toolbar-link .full { display: none; }
+body.force-touch .toolbar-link .short { display: inline; }
+body.force-touch .toolbar-sep { display: none; }
 .toolbar-sep {
   color: var(--line);
   user-select: none;
