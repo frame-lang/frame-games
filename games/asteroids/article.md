@@ -214,16 +214,18 @@ Everything answers `false`. The only way out is `respawn()`, which the orchestra
 
 ## Frame Operations
 
-A Frame system normally communicates through its **interface** — events that get routed to the active state's handler and may trigger transitions. Every interface call goes through that event dispatch.
+A Frame system normally communicates with the outside world through its **interface**. Calls to interface methods generate events that get routed into the internal state machine for handling (or ignoring).
 
-**Operations** are a backdoor. They're plain methods on the system class that skip the state machine entirely — no event, no routing through the current state, no chance for any state to override the result. You declare them in the `operations:` block. The Ship's only operation looks like this:
+**Operations**, on the other hand, are a backdoor into the system. Operations are declared in the Frame `operations` block and the Frame preprocessor generates them as methods on the native object that gets created by the framepiler during compilation. Operations skip the state machine entirely — no FrameEvent generated, no routing to the current state, no chance for any state to override the result.
+
+The `AsteroidsGame` and `Ship` Frame controllers expose one operation to the game engine to get the name of the current state:
 
 ```
 operations:
-    get_current_state_name(): string { @@:(@@:system.state) }
+    get_current_state_name(): string { @@:(@@:system.state.name) }
 ```
 
-`@@:system.state` evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, and so on. Calling `m.ship.get_current_state_name()` is a direct method call that returns that string. The state machine isn't involved at all, which is why operations don't appear in the engine ↔ Ship interaction earlier in this article — they sit outside that contract.
+`@@:system.state.name` evaluates to the compartment's current state name verbatim — `"Alive"`, `"InHyperspace"`, and so on. Calling `m.ship.get_current_state_name()` is a direct method call that returns that string. The state machine isn't involved at all, which is why operations don't appear in the engine ↔ Ship interaction earlier in this article — they sit outside that contract.
 
 The power of operations is also the risk. Routing logic through them makes it invisible to the state machine: the diagram won't show it, transitions can't fire from it, and you've broken the encapsulation that lets a Frame system be portable across engines. **If a method might change state, keep it on the interface.** Operations are for things that don't.
 
