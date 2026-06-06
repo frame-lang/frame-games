@@ -425,6 +425,21 @@ body.force-touch .popout-btn { display: inline-block; }
   border-top: 1px solid var(--line);
   margin: 24px 0;
 }
+/* Diagrams + figures embedded in the markdown are exported at their
+ * native pixel widths and overflow the column on narrow viewports. Scale
+ * down to fit, preserve aspect ratio, and give them a white plate so the
+ * dark theme doesn't bleed through transparent SVG backgrounds. */
+.article img,
+.article svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px auto;
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+}
 
 /* ---- Pop-out FSM page (fsm.html) ---- */
 /* Fill the window with a vertical flex layout so each FSM card knows how
