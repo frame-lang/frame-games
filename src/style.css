@@ -120,12 +120,10 @@ html {
 
 /* Touch-driven layout rules (apply on any touch device, any orientation —
  * iPhone landscape is ~926px wide so width-based queries don't fire there,
- * even though it's clearly a phone). Sticky-play is dropped here, not in
- * the narrow-viewport block, because landscape phones need it dropped too. */
+ * even though it's clearly a phone). Sticky .play is preserved in portrait
+ * here so the canvas pins to the top while FSM + article scroll under it
+ * (landscape drops sticky explicitly in its own block below). */
 @media (hover: none) and (pointer: coarse) {
-  .play {
-    position: static;
-  }
   .play-stage {
     width: 100%;
   }
@@ -150,18 +148,22 @@ html {
     width: 100%;
     min-width: 0;
   }
-  /* Bottom bar: action icons + FIRE in a single row. */
+  /* Bottom bar: action icons + FIRE in a single row. Minimal vertical
+   * height — Apple's 44pt minimum for tap targets is the floor, so the
+   * bar takes the smallest amount of viewport real estate that still
+   * feels reliable to thumb-tap. Margin-top trimmed for the same reason. */
   .mobile-controls {
     flex-wrap: nowrap;
     gap: 5px;
+    margin-top: 6px;
   }
   .mobile-control {
     flex: 1 1 0;
     min-width: 0;
-    font-size: 44px;
+    font-size: 26px;
     line-height: 1;
-    min-height: 72px;
-    padding: 6px 4px;
+    min-height: 44px;
+    padding: 4px 4px;
     letter-spacing: 0;
     font-variant-emoji: text;
     -webkit-font-feature-settings: "ss20";
@@ -170,7 +172,7 @@ html {
   .mobile-controls .mobile-control[aria-label="FIRE"] {
     flex: 2 1 0;
     font-weight: 700;
-    font-size: 18px;
+    font-size: 15px;
     letter-spacing: 0.05em;
   }
 }
@@ -182,6 +184,7 @@ html {
  * the bottom #mobile-controls element into a column slot via grid-area. */
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) {
   .play {
+    position: static;  /* drop sticky for landscape; everything fits in viewport */
     display: grid;
     grid-template-columns: 52px 1fr 64px;
     grid-template-areas:
@@ -230,7 +233,6 @@ html {
 }
 
 /* Force-touch testing on desktop mirrors the touch layout. */
-body.force-touch .play { position: static; }
 body.force-touch .play-stage-row {
   display: grid;
   grid-template-columns: 52px 1fr;
@@ -245,17 +247,17 @@ body.force-touch .mobile-controls {
 body.force-touch .mobile-control {
   flex: 1 1 0;
   min-width: 0;
-  font-size: 44px;
+  font-size: 26px;
   line-height: 1;
-  min-height: 72px;
-  padding: 6px 4px;
+  min-height: 44px;
+  padding: 4px 4px;
   font-variant-emoji: text;
   text-align: center;
 }
 body.force-touch .mobile-controls .mobile-control[aria-label="FIRE"] {
   flex: 2 1 0;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 /* Sticky play column: the canvas + version tabs + controls hint stay
