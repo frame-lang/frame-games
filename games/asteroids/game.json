@@ -6,8 +6,8 @@
   "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause",
   "mobileButtons": [
     { "label": "◀",    "key": "ArrowLeft",  "hold": true,  "position": "left" },
-    { "label": "▲",    "key": "ArrowUp",    "hold": true,  "position": "left" },
     { "label": "▶",    "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "▲",    "key": "ArrowUp",    "hold": true,  "position": "left" },
     { "label": "⏸",    "key": "KeyP",       "hold": false, "position": "bottom" },
     { "label": "↻",    "key": "KeyR",       "hold": false, "position": "bottom" },
     { "label": "⚡",   "key": "KeyH",       "hold": false, "position": "bottom" },
