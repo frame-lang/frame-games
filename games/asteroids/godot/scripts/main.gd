@@ -119,7 +119,14 @@ func _handle_input(delta: float) -> void:
 
     if state == "GameOver":
         if Input.is_key_pressed(KEY_R):
+            # restart() lands the orchestrator in $Attract (resets score,
+            # wave, bullets). start() then advances to $Playing and
+            # respawns the ship. Doing both here means a single R/↻ tap
+            # takes the player straight back into a fresh game instead of
+            # stalling on the Attract screen waiting for another key.
             fsm.restart()
+            fsm.start()
+            bullets.clear()
         return
 
     # Pause toggle (edge-detected)

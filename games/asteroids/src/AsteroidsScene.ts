@@ -153,11 +153,20 @@ export class AsteroidsScene extends Phaser.Scene {
     else if (this.m.get_current_state_name() === "Playing" || this.m.get_current_state_name() === "ShipDying") this.m.pause();
   }
 
-  // R restarts from $GameOver (matches Godot's KEY_R handler). Any other
-  // state ignores R, which means R during gameplay is a no-op — same as
-  // Godot.
+  // R restarts from $GameOver. The orchestrator FSM models restart as a
+  // two-step transition (GameOver -> Attract via restart(), then
+  // Attract -> Playing via start()) — Phaser's generic 'keydown' fires
+  // BEFORE the specific 'keydown-R', so onAnyKey() runs with state still
+  // "GameOver" and is a no-op; only onR() reaches the Attract state, and
+  // by then there's no follow-up event to trigger start(). So R appears
+  // to land on the Attract screen without respawning the ship. Drive
+  // both transitions explicitly from here so a single press of R / ↻
+  // takes the player straight back into a fresh game.
   private onR(): void {
-    if (this.m.get_current_state_name() === "GameOver") this.m.restart();
+    if (this.m.get_current_state_name() === "GameOver") {
+      this.m.restart();   // → $Attract (resets score, wave, bullet count)
+      this.m.start();     // → $Playing (ship.respawn() + first wave)
+    }
   }
 
   // Any key advances $Attract → $Playing (matches Godot's
