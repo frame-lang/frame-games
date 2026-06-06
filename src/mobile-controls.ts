@@ -46,23 +46,62 @@ function codeToKeyCode(code: string): number {
   return 0;
 }
 
-function fireKey(type: "keydown" | "keyup", code: string): void {
-  const keyCode = codeToKeyCode(code);
-  // Some browsers ignore keyCode passed in the init dict (it's a legacy
-  // property). Construct the event then force keyCode + which via
-  // Object.defineProperty so Phaser sees the right value on either path.
-  const ev = new KeyboardEvent(type, {
-    code,
-    key: code,
-    keyCode,
-    bubbles: true,
-    cancelable: true,
+// Build a KeyboardEvent in a specific realm (window context). Cross-realm
+// dispatch is fragile — events constructed in the parent realm but
+// dispatched on an iframe's contentWindow may be rejected as "wrong
+// document," so we use the iframe's own KeyboardEvent constructor when
+// forwarding into it.
+function buildKeyEvent(
+  Ctor: typeof KeyboardEvent,
+  type: "keydown" | "keyup",
+  code: string,
+  keyCode: number,
+): KeyboardEvent {
+  const ev = new Ctor(type, {
+    code, key: code, keyCode,
+    bubbles: true, cancelable: true,
   });
+  // Some browsers ignore keyCode passed in the init dict (it's a legacy
+  // property). Force keyCode + which via defineProperty so Phaser sees
+  // the right value on either path.
   try {
     Object.defineProperty(ev, "keyCode", { get: () => keyCode });
     Object.defineProperty(ev, "which",   { get: () => keyCode });
   } catch { /* read-only on some platforms — init-dict value will have to do */ }
-  window.dispatchEvent(ev);
+  return ev;
+}
+
+function fireKey(type: "keydown" | "keyup", code: string): void {
+  const keyCode = codeToKeyCode(code);
+
+  // Parent window: Phaser listens here.
+  window.dispatchEvent(buildKeyEvent(KeyboardEvent, type, code, keyCode));
+
+  // Forward into any same-origin iframe (the Godot WASM build is embedded
+  // as an iframe — its keyboard listeners live in that frame's realm, so
+  // events dispatched on the parent window never reach them). Cross-origin
+  // frames throw on contentWindow access; swallow and move on.
+  const frames = document.getElementsByTagName("iframe");
+  for (let i = 0; i < frames.length; i++) {
+    const f = frames[i];
+    try {
+      const cw = f.contentWindow;
+      const cd = f.contentDocument;
+      if (!cw || !cd) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const Ctor: typeof KeyboardEvent = ((cw as any).KeyboardEvent ?? KeyboardEvent);
+      const dispatchOn = (target: EventTarget): void => {
+        target.dispatchEvent(buildKeyEvent(Ctor, type, code, keyCode));
+      };
+      // Godot's Emscripten HTML5 backend may have wired its listeners on
+      // the canvas, the document, or the window — dispatch on all three
+      // (no-op on whichever isn't listening). Canvas first for specificity.
+      const canvas = cd.querySelector("canvas");
+      if (canvas) dispatchOn(canvas);
+      dispatchOn(cd);
+      dispatchOn(cw);
+    } catch { /* cross-origin / detached frame */ }
+  }
 }
 
 export function mountMobileControls(
