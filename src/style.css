@@ -108,6 +108,25 @@ html {
   .play {
     position: static;
   }
+  /* Tighten the FSM cards so two diagrams + the game canvas can share
+   * the viewport. In code mode (chart hidden) the source pane grows. */
+  #fsm-panel {
+    gap: 10px;
+  }
+  .fsm-card {
+    padding: 8px 10px;
+  }
+  .fsm-card h3 {
+    font-size: 13px;
+    margin: 0 0 4px;
+  }
+  .fsm-chart {
+    height: 160px;
+  }
+  .fsm.fsm-mode-code .fsm-source {
+    max-height: 65vh;
+    margin-top: 4px;
+  }
 }
 
 /* Sticky play column: the canvas + version tabs + controls hint stay
