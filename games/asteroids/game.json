@@ -8,9 +8,9 @@
     { "label": "◀",    "key": "ArrowLeft",  "hold": true,  "position": "left" },
     { "label": "▲",    "key": "ArrowUp",    "hold": true,  "position": "left" },
     { "label": "▶",    "key": "ArrowRight", "hold": true,  "position": "left" },
-    { "label": "↻",    "key": "KeyR",       "hold": false, "position": "right" },
-    { "label": "⏸",    "key": "KeyP",       "hold": false, "position": "right" },
-    { "label": "⚡",   "key": "KeyH",       "hold": false, "position": "right" },
+    { "label": "↻",    "key": "KeyR",       "hold": false, "position": "bottom" },
+    { "label": "⏸",    "key": "KeyP",       "hold": false, "position": "bottom" },
+    { "label": "⚡",   "key": "KeyH",       "hold": false, "position": "bottom" },
     { "label": "FIRE", "key": "Space",      "hold": false, "position": "bottom" }
   ],
   "machines": [

@@ -131,17 +131,17 @@ html {
     max-height: 65vh;
     margin-top: 4px;
   }
-  /* New touch layout: arrow column to the LEFT of the canvas, action
-   * column to the RIGHT, FIRE bar BELOW. Each side column stretches to
-   * the canvas's auto-derived height; its buttons share that height
-   * equally. The bottom slot keeps the original full-width row. */
+  /* Touch layout: arrow column to the LEFT of the canvas; action buttons
+   * + FIRE share the BOTTOM bar. Grid is more predictable than flex
+   * here — fixed-width left column, canvas fills the rest, aspect-ratio
+   * on the canvas derives its height reliably. Right column is empty
+   * (its buttons moved to the bottom bar) so :empty hides it and the
+   * grid collapses to 2 tracks. */
   .play-stage-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 52px 1fr;
     gap: 6px;
     align-items: stretch;
-  }
-  .mobile-controls-side {
-    flex: 0 0 52px;
   }
   .mobile-controls-side .mobile-control {
     width: 100%;
@@ -150,14 +150,12 @@ html {
     font-size: 18px;
     padding: 4px 2px;
   }
-  /* Canvas takes whatever's left — overrides the earlier `width: 100%`
-   * mobile override since it now lives inside a flex row. */
   .play-stage {
-    flex: 1 1 0;
-    width: auto;
+    width: 100%;
     min-width: 0;
   }
-  /* Bottom FIRE bar: single full-width button, vertically shrunk. */
+  /* Bottom bar: action buttons + FIRE in a single row. FIRE grows to
+   * take more space (flex: 2) so it's the visually dominant target. */
   .mobile-controls {
     flex-wrap: nowrap;
     gap: 5px;
@@ -166,9 +164,13 @@ html {
     flex: 1 1 0;
     min-width: 0;
     font-size: 12px;
-    min-height: 34px;
+    min-height: 38px;
     padding: 4px 6px;
     letter-spacing: -0.02em;
+  }
+  .mobile-controls .mobile-control[aria-label="FIRE"] {
+    flex: 2 1 0;
+    font-weight: 700;
   }
 }
 
@@ -739,4 +741,37 @@ body.fsm-page-body {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 2px 9px;
+}
+
+/* ----------------------------------------------------------------
+ * MOBILE OVERRIDES (final block)
+ * ----------------------------------------------------------------
+ * Lives at the END of the file so its rules win against later same-
+ * specificity desktop rules (specifically `.fsm-chart { height: 280px }`
+ * defined ~700 lines above). CSS source order matters — for same-
+ * specificity selectors, the later declaration wins, REGARDLESS of
+ * which one is inside a media query. Putting the mobile rules here
+ * guarantees they override.
+ * ---------------------------------------------------------------- */
+@media (max-width: 640px) {
+  /* FSM cards: hug content vertically; the desktop 280px slot left
+   * dead space above and below shorter diagrams. The SVG fills the
+   * card width and derives height from its viewBox. */
+  .fsm-chart {
+    height: auto;
+    min-height: 0;
+  }
+  .fsm-chart svg {
+    width: 100%;
+    height: auto;
+    max-height: none;
+    max-width: 100%;
+  }
+  .fsm-card {
+    padding: 6px 8px;
+  }
+  .fsm-card h3 {
+    font-size: 12px;
+    margin: 0 0 2px;
+  }
 }
