@@ -371,7 +371,12 @@ body.force-touch .toolbar-sep { display: none; }
   font-weight: 600;
 }
 .play-stage {
-  background: #000;
+  /* Match Phaser's configured game backgroundColor (#0b0e14) so the
+   * card's letterbox area visually merges with the canvas. Otherwise
+   * pure black (#000) here would draw a slightly-darker boundary
+   * around the canvas, making the game look like a small box sitting
+   * inside a wider card. */
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
@@ -906,5 +911,35 @@ body.fsm-page-body {
   .fsm-card h3 {
     font-size: 12px;
     margin: 0 0 2px;
+  }
+}
+
+/* Landscape touch overrides — same source-order trick. The base
+ * .play-stage rule (line ~373) sets aspect-ratio: 720/480 and a width
+ * formula derived from --play-h (which clamps to ~180px on a short
+ * landscape viewport, producing a 270px-wide card). The landscape
+ * @media block above tried to override but loses on source order,
+ * so the card stayed tiny. These rules at the end of the file win.
+ *
+ * The canvas can't visually fill more horizontal space without
+ * breaking the game's 720:480 aspect ratio (Phaser FIT is already
+ * giving the maximum aspect-preserving size). What we CAN do is make
+ * the surrounding card chrome invisible — drop the card's border,
+ * drop the column gap, and match the card's background to Phaser's
+ * configured backgroundColor (#0b0e14, exposed as var(--bg)). With
+ * those visual seams removed, the canvas + its letterbox bars read
+ * as one continuous edge-to-edge surface that "touches" the buttons. */
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  .play {
+    column-gap: 0;
+  }
+  .play-stage {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    margin-inline: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--bg);
   }
 }
