@@ -25,11 +25,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # ----- checkout (recursive: vendor/frame-arcade-js and vendor/frame-arcade) -----
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       # ----- Node + Rust toolchains -----
       - name: Setup Node

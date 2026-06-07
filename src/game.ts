@@ -22,122 +22,41 @@ const ARTICLES = import.meta.glob<string>("../games/*/article.md", {
 // per-target type annotations, sometimes minor target-specific tweaks. We
 // swap the source displayed under each card when the active runtime
 // changes, while leaving the chart SVGs untouched.
-// Two source pools:
-//   1. games/<id>/src/<id>.fjs — sources owned by frame-games proper.
-//      Asteroids is here; other games migrate as they get their mobile pass.
-//   2. vendor/frame-arcade-js/src/games/<id>/<id>.fjs — still-vendored games.
-// findFrameJsSource() probes (1) first, falls back to (2).
-const FRAME_SOURCES_JS_LOCAL = import.meta.glob<string>(
+// Frame sources: each game owns its sources under games/<id>/src (.fjs) and
+// games/<id>/frame (.fgd). Vite eager-loads both at build time so the FSM
+// panel's per-card source block can render the exact text the diagram was
+// generated from.
+const FRAME_SOURCES_JS = import.meta.glob<string>(
   "../games/*/src/*.fjs",
   { eager: true, query: "?raw", import: "default" },
 );
-const FRAME_SOURCES_JS_VENDOR = import.meta.glob<string>(
-  "../vendor/frame-arcade-js/src/games/*/*.fjs",
-  { eager: true, query: "?raw", import: "default" },
-);
-// Godot Frame sources: games/<id>/frame/<id>.fgd locally, or
-// vendor/frame-arcade/ch??-<id>/frame/<id>.fgd in the deprecated submodule.
-const FRAME_SOURCES_GODOT_LOCAL = import.meta.glob<string>(
+const FRAME_SOURCES_GODOT = import.meta.glob<string>(
   "../games/*/frame/*.fgd",
-  { eager: true, query: "?raw", import: "default" },
-);
-const FRAME_SOURCES_GODOT_VENDOR = import.meta.glob<string>(
-  "../vendor/frame-arcade/*/frame/*.fgd",
   { eager: true, query: "?raw", import: "default" },
 );
 
 function findFrameJsSource(gameId: string): string | undefined {
-  const localKey = `../games/${gameId}/src/${gameId}.fjs`;
-  if (FRAME_SOURCES_JS_LOCAL[localKey]) return FRAME_SOURCES_JS_LOCAL[localKey];
-  const vendorKey = `../vendor/frame-arcade-js/src/games/${gameId}/${gameId}.fjs`;
-  return FRAME_SOURCES_JS_VENDOR[vendorKey];
+  return FRAME_SOURCES_JS[`../games/${gameId}/src/${gameId}.fjs`];
 }
 
-// The Godot chapter dirs in vendor are named ch01-pong / ch02-breakout / etc.
-// — locally we use games/<id>/frame/<id>.fgd. Probe local by id, then vendor
-// by filename basename match.
 function findGodotSource(gameId: string): string | undefined {
-  const localKey = `../games/${gameId}/frame/${gameId}.fgd`;
-  if (FRAME_SOURCES_GODOT_LOCAL[localKey]) return FRAME_SOURCES_GODOT_LOCAL[localKey];
-  const suffix = `/${gameId}.fgd`;
-  for (const [path, src] of Object.entries(FRAME_SOURCES_GODOT_VENDOR)) {
-    if (path.endsWith(suffix)) return src;
-  }
-  return undefined;
+  return FRAME_SOURCES_GODOT[`../games/${gameId}/frame/${gameId}.fgd`];
 }
 
 // Per-game live-state accessors. Display metadata (titles, blurbs, push$/pop$
 // edges, version entries) lives in games/<id>/game.json; this maps a game id
 // to a function that, given the top-level machine instance, returns a getter
-// per system. Kept here because it pokes at machine internals (`m.ball`,
-// `m.bricks`) — runtime-only, not part of the shareable manifest.
+// per system. Kept here because it pokes at machine internals (`m.ship`) —
+// runtime-only, not part of the shareable manifest.
 const STATE_ACCESSORS: Record<
   string,
   (machine: unknown) => Record<string, () => string | null>
 > = {
-  breakout: (m) => {
-    const sub = m as { ball: unknown; bricks: unknown };
-    return {
-      Breakout: () => liveState(m),
-      Ball: () => liveState(sub.ball),
-      BrickField: () => liveState(sub.bricks),
-    };
-  },
-  pong: (m) => ({
-    Pong: () => liveState(m),
-  }),
-  invaders: (m) => {
-    const sub = m as { player: unknown; fleet: unknown };
-    return {
-      Invaders: () => liveState(m),
-      Player: () => liveState(sub.player),
-      Fleet: () => liveState(sub.fleet),
-    };
-  },
   asteroids: (m) => {
     const sub = m as { ship: unknown };
     return {
       AsteroidsGame: () => liveState(m),
       Ship: () => liveState(sub.ship),
-    };
-  },
-  pacman: (m) => {
-    // Four ghosts run the same FSM; the panel visualizes the first one (the
-    // others are state-equivalent for diagram purposes, just differently
-    // parameterized — Blinky / Pinky / Inky / Clyde).
-    const sub = m as { ghosts: unknown[] };
-    return {
-      GhostGame: () => liveState(m),
-      Ghost: () => liveState(sub.ghosts[0]),
-    };
-  },
-  platformer: (m) => {
-    const sub = m as { loco: unknown; power: unknown };
-    return {
-      Platformer: () => liveState(m),
-      Locomotion: () => liveState(sub.loco),
-      PowerUp: () => liveState(sub.power),
-    };
-  },
-  shooter: (m) => {
-    // Many enemies run concurrently and are spawned dynamically — the panel
-    // tracks the first one. enemies[] is empty in Attract; null falls through
-    // to no highlight, which is correct (no enemy live in that phase).
-    const sub = m as { player: unknown; boss: unknown; enemies: unknown[] };
-    return {
-      Shooter: () => liveState(m),
-      Player: () => liveState(sub.player),
-      Boss: () => liveState(sub.boss),
-      Enemy: () => liveState(sub.enemies[0]),
-    };
-  },
-  stealth: (m) => {
-    // Three guards run the same FSM independently; the panel tracks the
-    // first one. (guard1 / guard2 / guard3 — named fields, not an array.)
-    const sub = m as { guard1: unknown };
-    return {
-      Stealth: () => liveState(m),
-      Guard: () => liveState(sub.guard1),
     };
   },
 };
@@ -157,11 +76,11 @@ const articleEl = document.getElementById("article")!;
 const fsmAside = document.getElementById("state-machines")!;
 const fsmModeBtn = document.getElementById("fsm-mode-toggle") as HTMLButtonElement | null;
 
-const requestedId = new URLSearchParams(location.search).get("game") ?? "breakout";
-const entry = GAMES[requestedId] ?? GAMES.breakout;
+const requestedId = new URLSearchParams(location.search).get("game") ?? "asteroids";
+const entry = GAMES[requestedId] ?? GAMES.asteroids;
 const def = entry.def;
 const manifest = entry.manifest;
-const accessorsFor = STATE_ACCESSORS[requestedId] ?? STATE_ACCESSORS.breakout;
+const accessorsFor = STATE_ACCESSORS[requestedId] ?? STATE_ACCESSORS.asteroids;
 
 let godotLoaded = false;
 

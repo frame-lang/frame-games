@@ -1,4 +1,4 @@
-import { StateChart } from "../vendor/frame-arcade-js/src/visualizer";
+import { StateChart } from "./state-chart";
 
 // Frame's `framec -l graphviz` emits one file containing a separate
 // `digraph <System> { … }` per @@system. The live state-chart primitive

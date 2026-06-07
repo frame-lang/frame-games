@@ -6,8 +6,7 @@ export interface FrameMachine {
 }
 
 /** A pluggable arcade entry: one Frame `.fjs` + one Phaser scene. Owned per
- * game under `games/<id>/src/index.ts` — frame-games is the single source
- * of truth now that frame-arcade-js is deprecated. */
+ * game under `games/<id>/src/index.ts`. */
 export interface GameDef {
   id: string;
   title: string;

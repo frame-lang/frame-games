@@ -1,25 +1,24 @@
 #!/usr/bin/env bash
 # ============================================================
-# build/godot.sh — export the Godot WASM build of one (or all) games
+# build/godot.sh — export the Godot WASM build of a game
 # ============================================================
 #   build/godot.sh <id>       # build a single game's Web export
-#   build/godot.sh all        # build every chapter
+#   build/godot.sh all        # build every registered game
 #
 # Drops the Web export at games/<id>/versions/godot-wasm/
 # (index.html / .pck / .wasm / .js / .audio.worklet.js / …).
 # The game page's iframe loads from that path; the .pck probe in
 # game.ts confirms the build actually ran before embedding.
 #
-# Strategy: each chapter's Godot project lives under the
-# frame-arcade submodule. We don't add export presets there (would
-# dirty the submodule), so we stage a copy under build/godot-<id>/
-# and add the preset + a per-game live_state_publisher autoload to
-# THAT copy.
+# Strategy: each game's Godot project lives at games/<id>/godot/.
+# We stage a copy under build/godot-<id>/ and add the export preset
+# + a per-game live_state_publisher autoload to THAT copy so the
+# original directory stays clean.
 #
 # Pre-reqs:
 #   - godot 4.x on PATH (or set GODOT=/path/to/godot)
 #   - matching Godot export templates (Web) installed
-#   - framec on PATH (run by each chapter's own build.sh)
+#   - framec on PATH
 # ============================================================
 set -euo pipefail
 
@@ -32,24 +31,17 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # generated autoload guards against an empty array, so it does the right thing
 # in attract / pre-spawn states).
 case "${1:-}" in
-    pong)        CH=ch01-pong;       SYSTEMS=("Pong:fsm") ;;
-    breakout)    CH=ch02-breakout;   SYSTEMS=("Breakout:fsm" "Ball:fsm.ball") ;;
-    invaders)    CH=ch03-invaders;   SYSTEMS=("Invaders:fsm" "Player:fsm.player" "Fleet:fsm.fleet") ;;
-    asteroids)   CH=ch04-asteroids;  SYSTEMS=("AsteroidsGame:fsm" "Ship:fsm.ship" "AsteroidField:fsm.field") ;;
-    pacman)      CH=ch05-pacman;     SYSTEMS=("GhostGame:fsm" "Ghost:fsm.ghosts[0]" "GhostPen:fsm.pen") ;;
-    platformer)  CH=ch06-platformer; SYSTEMS=("Platformer:fsm" "Locomotion:fsm.loco" "PowerUp:fsm.power") ;;
-    shooter)     CH=ch07-shooter;    SYSTEMS=("Shooter:fsm" "Player:fsm.player" "Boss:fsm.boss" "Enemy:fsm.enemies[0]") ;;
-    stealth)     CH=ch08-stealth;    SYSTEMS=("Stealth:fsm" "Guard:fsm.guard1") ;;
+    asteroids)   SYSTEMS=("AsteroidsGame:fsm" "Ship:fsm.ship" "AsteroidField:fsm.field") ;;
     all)
         # Build each game in turn. Skip a failure and continue with the rest;
         # the summary at the end shows which produced an index.pck.
-        for g in pong breakout invaders asteroids pacman platformer shooter stealth; do
+        for g in asteroids; do
             bash "$0" "$g" || echo "  ! $g failed; continuing"
         done
         echo
         echo "=========================================================="
         echo "==> summary"
-        for g in pong breakout invaders asteroids pacman platformer shooter stealth; do
+        for g in asteroids; do
             if [[ -f "$REPO_DIR/games/$g/versions/godot-wasm/index.pck" ]]; then
                 printf "    ok   %s\n" "$g"
             else
@@ -60,7 +52,7 @@ case "${1:-}" in
         ;;
     *)
         echo "usage: build/godot.sh <id|all>"
-        echo "  ids: pong breakout invaders asteroids pacman platformer shooter stealth"
+        echo "  ids: asteroids"
         exit 1
         ;;
 esac
@@ -69,24 +61,10 @@ GAME="$1"
 STAGE_DIR="$REPO_DIR/build/godot-$GAME"
 OUT_DIR="$REPO_DIR/games/$GAME/versions/godot-wasm"
 
-# Two source layouts:
-#   LOCAL: games/<id>/{frame,godot,generated}/ — owned by frame-games proper.
-#   VENDOR: vendor/frame-arcade/<chXX-id>/{frame,godot,generated}/ — the
-#     deprecated submodule. Games migrate from VENDOR to LOCAL one at a time.
-case "$GAME" in
-    asteroids)
-        SRC_PROJECT="$REPO_DIR/games/$GAME"
-        FRAME_SRC="$SRC_PROJECT/frame/$GAME.fgd"
-        GENERATED_DIR="$SRC_PROJECT/generated"
-        GODOT_DIR="$SRC_PROJECT/godot"
-        ;;
-    *)
-        SRC_PROJECT="$REPO_DIR/vendor/frame-arcade/$CH"
-        FRAME_SRC="$SRC_PROJECT/frame/$GAME.fgd"
-        GENERATED_DIR="$SRC_PROJECT/generated"
-        GODOT_DIR="$SRC_PROJECT/godot"
-        ;;
-esac
+SRC_PROJECT="$REPO_DIR/games/$GAME"
+FRAME_SRC="$SRC_PROJECT/frame/$GAME.fgd"
+GENERATED_DIR="$SRC_PROJECT/generated"
+GODOT_DIR="$SRC_PROJECT/godot"
 
 GODOT_BIN="${GODOT:-godot}"
 if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
@@ -97,7 +75,7 @@ if ! command -v "$GODOT_BIN" >/dev/null 2>&1; then
 fi
 
 echo "=========================================================="
-echo "==> $GAME ($CH)"
+echo "==> $GAME"
 echo "=========================================================="
 
 echo "==> regenerate .gd from Frame source"

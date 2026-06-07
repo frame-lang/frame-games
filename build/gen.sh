@@ -3,11 +3,8 @@
 # Generated files are gitignored, so a fresh checkout won't have them —
 # this regenerates them in place. Requires framec >= 4.3.0 on PATH.
 #
-# Games are split into two tables:
-#   LOCAL_GAMES — sources live in games/<id>/src/ (frame-games proper).
-#   VENDOR_GAMES — sources live in the deprecated frame-arcade-js submodule;
-#     these will migrate to LOCAL_GAMES one at a time. Both tables run
-#     through the same framec invocations.
+# Each game's source lives at games/<id>/src/<id>.fjs and outputs land
+# beside it as <id>.machine.js + <id>.dot.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -17,22 +14,13 @@ if ! command -v framec >/dev/null 2>&1; then
   exit 1
 fi
 
-LOCAL_GAMES=(asteroids)
-VENDOR_GAMES=(breakout pong invaders pacman platformer shooter stealth)
-JS_ROOT="vendor/frame-arcade-js"
+GAMES=(asteroids)
 
-for game in "${LOCAL_GAMES[@]}"; do
+for game in "${GAMES[@]}"; do
   dir="games/$game/src"
   framec -l javascript "$dir/$game.fjs" > "$dir/$game.machine.js"
   framec -l graphviz   "$dir/$game.fjs" > "$dir/$game.dot"
-  echo "generated (local): $game"
-done
-
-for game in "${VENDOR_GAMES[@]}"; do
-  dir="$JS_ROOT/src/games/$game"
-  framec -l javascript "$dir/$game.fjs" > "$dir/$game.machine.js"
-  framec -l graphviz   "$dir/$game.fjs" > "$dir/$game.dot"
-  echo "generated (vendor): $game"
+  echo "generated: $game"
 done
 
 # Showcase's own controller — the Frame machine that decides which game

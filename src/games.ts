@@ -1,27 +1,11 @@
 // The per-game registry. Each entry wires a manifest JSON (titles, blurbs,
 // per-machine FSM metadata, version list) to the runtime bits that can't go
-// in JSON: the vendored GameDef from frame-arcade-js (createMachine + Phaser
-// Scene + the generated .dot). Adding a game is mostly a data change — drop
-// in games/<id>/game.json and add one entry here pointing at its def.
-// Asteroids lives in frame-games proper now (games/asteroids/src) — the
-// frame-arcade-js submodule is deprecated. Other games still import from
-// vendor until they get the same treatment.
+// in JSON: the GameDef from games/<id>/src (createMachine + Phaser Scene +
+// the generated .dot). Adding a game is mostly a data change — drop in
+// games/<id>/game.json and games/<id>/src/{<id>.fjs,<id>Scene.ts,index.ts}
+// and add one entry here pointing at its def.
 import { asteroids } from "../games/asteroids/src";
-import { breakout } from "../vendor/frame-arcade-js/src/games/breakout";
-import { pong } from "../vendor/frame-arcade-js/src/games/pong";
-import { invaders } from "../vendor/frame-arcade-js/src/games/invaders";
-import { pacman } from "../vendor/frame-arcade-js/src/games/pacman";
-import { platformer } from "../vendor/frame-arcade-js/src/games/platformer";
-import { shooter } from "../vendor/frame-arcade-js/src/games/shooter";
-import { stealth } from "../vendor/frame-arcade-js/src/games/stealth";
-import breakoutManifest from "../games/breakout/game.json";
-import pongManifest from "../games/pong/game.json";
-import invadersManifest from "../games/invaders/game.json";
 import asteroidsManifest from "../games/asteroids/game.json";
-import pacmanManifest from "../games/pacman/game.json";
-import platformerManifest from "../games/platformer/game.json";
-import shooterManifest from "../games/shooter/game.json";
-import stealthManifest from "../games/stealth/game.json";
 import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
@@ -67,44 +51,16 @@ export interface GameManifest {
 }
 
 export interface GameEntry {
-  // The vendored GameDef brings the generated .dot + the JS createMachine
-  // factory + the Phaser Scene class. Display metadata comes from `manifest`.
+  // GameDef brings the generated .dot + the JS createMachine factory + the
+  // Phaser Scene class. Display metadata comes from `manifest`.
   def: GameDef;
   manifest: GameManifest;
 }
 
 export const GAMES: Record<string, GameEntry> = {
-  breakout: {
-    def: breakout,
-    manifest: breakoutManifest as GameManifest,
-  },
-  pong: {
-    def: pong,
-    manifest: pongManifest as GameManifest,
-  },
-  invaders: {
-    def: invaders,
-    manifest: invadersManifest as GameManifest,
-  },
   asteroids: {
     def: asteroids,
     manifest: asteroidsManifest as GameManifest,
-  },
-  pacman: {
-    def: pacman,
-    manifest: pacmanManifest as GameManifest,
-  },
-  platformer: {
-    def: platformer,
-    manifest: platformerManifest as GameManifest,
-  },
-  shooter: {
-    def: shooter,
-    manifest: shooterManifest as GameManifest,
-  },
-  stealth: {
-    def: stealth,
-    manifest: stealthManifest as GameManifest,
   },
 };
 
