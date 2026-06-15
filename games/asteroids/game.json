@@ -3,7 +3,7 @@
   "title": "Asteroids",
   "summary": "State-local variables on a timed mode, an HSM in-game parent whose pause handler the three children inherit, and push$/pop$ pause where the pop target genuinely varies.",
   "teaches": "State-local variables ($.timer) · HSM-inherited pause · push$/pop$ where the pop target varies across $Playing / $ShipDying / $WaveClear",
-  "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause",
+  "controls": "←/→ turn · ↑ thrust · SPACE fire · H hyperspace · P pause · R restart",
   "mobileButtons": [
     { "label": "◀",    "key": "ArrowLeft",  "hold": true,  "position": "left" },
     { "label": "▶",    "key": "ArrowRight", "hold": true,  "position": "left" },
@@ -27,6 +27,9 @@
   ],
   "versions": [
     { "id": "js", "label": "JavaScript" },
-    { "id": "godot-wasm", "label": "Godot", "entry": "/games/asteroids/versions/godot-wasm/index.html" }
+    { "id": "godot-gdscript", "label": "Godot · GDScript", "entry": "/games/asteroids/versions/godot-gdscript/index.html" },
+    { "id": "godot-c", "label": "Godot · C", "entry": "/games/asteroids/versions/godot-c/index.html" },
+    { "id": "godot-rust", "label": "Godot · Rust", "entry": "/games/asteroids/versions/godot-rust/index.html" },
+    { "id": "godot-cpp", "label": "Godot · C++", "entry": "/games/asteroids/versions/godot-cpp/index.html" }
   ]
 }
