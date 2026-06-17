@@ -560,3 +560,24 @@ unkillable until reboot, the same wedge as before but triggered at export time.
 The bundle is always written *before* the hang, so the build is correct; the
 scripts now `disown` the export rather than `wait` on a process that will never
 be reaped. The zombies accumulate across builds and only a reboot clears them.
+
+---
+
+## C gets its HUD — raw-C text, at last
+
+The C port shipped without on-canvas text — no score, no "press to start" —
+because `draw_string` is the worst call in the GDExtension C ABI: 11 ptrcall
+args (all required, no defaults) including a `Font*` you first fetch from a
+second singleton (`ThemeDB::get_fallback_font`), and a `String` you must
+construct (`string_new_with_utf8_chars`) and destruct (`variant_get_ptr_destructor`)
+around each call. The godot `String` is conveniently pointer-sized (4 bytes on
+wasm32, 8 on arm64), so a `void*` slot is exactly right on both.
+
+Wrapped that into a `draw_text(text, pos, width, align, size, color)` helper,
+added the HUD (`SCORE/LIVES/WAVE/DIFF/WARP`) and a device-aware center message
+(multi-line, split on `\n` and each line centered via `HORIZONTAL_ALIGNMENT_CENTER`
+across the court width) — keys `R/H/P` on desktop, glyphs `↻/⚡/⏸` on touch, same
+as the other ports. Verified on macOS (in-engine capture) and in the browser:
+the C port now reads identically to GDScript/Rust/C++ — full visual parity, no
+longer the bare-bones one. (Exit-time "RID leaked" warnings are cosmetic — five
+cached shaped-texts for the five distinct strings, not a per-frame leak.)
