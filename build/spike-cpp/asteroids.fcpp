@@ -1,0 +1,478 @@
+@@[target("cpp")]
+
+// ============================================================
+// Asteroids — C++/godot-cpp port of the Frame controller.
+// Same three systems as the Rust port; native bodies in C++ (// comments,
+// parens on if/while, std:: + godot types, push_back, ->call_deferred).
+// ============================================================
+
+#include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/variant/vector2.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
+#include <string>
+#include <vector>
+#include <cmath>
+
+using namespace godot;
+
+struct Asteroid {
+    Vector2 pos;
+    Vector2 vel;
+    int size;
+    bool alive;
+};
+
+static float rf() { return (float)UtilityFunctions::randf(); }
+
+// ------------------------------------------------------------ Ship
+@@system Ship(host: Node*) {
+
+    operations:
+        get_current_state_name(): std::string { @@:(@@:system.state.name) }
+        get_hyperspaces_remaining(): int { @@:(@@:self.hyperspaces_remaining) }
+
+    interface:
+        tick(dt: float)
+        hit()
+        hyperspace()
+        respawn()
+        fire()
+        can_fire(): bool
+        can_be_hit(): bool
+        can_hyperspace(): bool
+        is_visible(): bool
+        is_alive(): bool
+        get_lives(): int
+
+    machine:
+
+        $Alive {
+            $.cooldown: float = 0.0
+            tick(dt: float) {
+                if ($.cooldown > 0.0) {
+                    $.cooldown = $.cooldown - dt;
+                }
+            }
+            fire() { $.cooldown = 0.22; }
+            hit() { -> $Exploding }
+            hyperspace() {
+                if (@@:self.hyperspaces_remaining > 0) {
+                    @@:self.hyperspaces_remaining = @@:self.hyperspaces_remaining - 1;
+                    -> $InHyperspace
+                }
+            }
+            can_fire(): bool       { @@:($.cooldown <= 0.0) }
+            can_be_hit(): bool     { @@:(true) }
+            can_hyperspace(): bool { @@:(@@:self.hyperspaces_remaining > 0) }
+            is_visible(): bool     { @@:(true) }
+            is_alive(): bool       { @@:(true) }
+            get_lives(): int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $InHyperspace {
+            $.timer: float = 0.0
+            $.duration: float = 0.4
+            $>() { @@:self.host->call_deferred("warp_out"); }
+            <$() { @@:self.host->call_deferred("warp_in"); }
+            tick(dt: float) {
+                $.timer = $.timer + dt;
+                if ($.timer >= $.duration) {
+                    -> "warp complete" $Alive
+                }
+            }
+            can_fire(): bool       { @@:(false) }
+            can_be_hit(): bool     { @@:(false) }
+            can_hyperspace(): bool { @@:(false) }
+            is_visible(): bool     { @@:(false) }
+            is_alive(): bool       { @@:(true) }
+            get_lives(): int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $Exploding {
+            $.timer: float = 0.0
+            $.duration: float = 1.0
+            $>() { @@:self.host->call_deferred("spawn_explosion"); }
+            tick(dt: float) {
+                $.timer = $.timer + dt;
+                if ($.timer >= $.duration) {
+                    @@:self.lives_remaining = @@:self.lives_remaining - 1;
+                    if (@@:self.lives_remaining <= 0) {
+                        -> "no lives left" $Dead
+                    } else {
+                        -> "lives remain" $Respawning
+                    }
+                }
+            }
+            can_fire(): bool       { @@:(false) }
+            can_be_hit(): bool     { @@:(false) }
+            can_hyperspace(): bool { @@:(false) }
+            is_visible(): bool     { @@:(true) }
+            is_alive(): bool       { @@:(false) }
+            get_lives(): int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $Respawning {
+            $.timer: float = 0.0
+            $.duration: float = 2.0
+            $>() { @@:self.host->call_deferred("reset_ship"); }
+            tick(dt: float) {
+                $.timer = $.timer + dt;
+                if ($.timer >= $.duration) {
+                    -> "invuln expired" $Alive
+                }
+            }
+            can_fire(): bool       { @@:(true) }
+            can_be_hit(): bool     { @@:(false) }
+            can_hyperspace(): bool { @@:(false) }
+            is_visible(): bool     { @@:(true) }
+            is_alive(): bool       { @@:(true) }
+            get_lives(): int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $Dead {
+            respawn() {
+                @@:self.lives_remaining = @@:self.starting_lives;
+                @@:self.hyperspaces_remaining = @@:self.starting_hyperspaces;
+                -> $Respawning
+            }
+            can_fire(): bool       { @@:(false) }
+            can_be_hit(): bool     { @@:(false) }
+            can_hyperspace(): bool { @@:(false) }
+            is_visible(): bool     { @@:(false) }
+            is_alive(): bool       { @@:(false) }
+            get_lives(): int       { @@:(0) }
+        }
+
+    domain:
+        host: Node* = host
+        lives_remaining: int = 3
+        starting_lives: int = 3
+        hyperspaces_remaining: int = 3
+        starting_hyperspaces: int = 3
+}
+
+// ------------------------------------------------------------ AsteroidField
+@@system AsteroidField {
+
+    interface:
+        spawn_wave(count: int, court_size: Vector2)
+        split(index: int): bool
+        remove(index: int)
+        clear()
+        advance(dt: float, court_size: Vector2)
+        count(): int
+        alive_count(): int
+        is_alive(index: int): bool
+        position(index: int): Vector2
+        velocity(index: int): Vector2
+        size_of(index: int): int
+        radius_of(index: int): float
+
+    machine:
+
+        $Active {
+            spawn_wave(count: int, court_size: Vector2) {
+                @@:self.asteroids.clear();
+                int i = 0;
+                while (i < count) {
+                    @@:self.spawn_large(court_size);
+                    i = i + 1;
+                }
+            }
+
+            split(index: int): bool {
+                if (index < 0 || (size_t)index >= @@:self.asteroids.size()) {
+                    @@:return(false)
+                }
+                if (!@@:self.asteroids[index].alive) {
+                    @@:return(false)
+                }
+                @@:self.asteroids[index].alive = false;
+                int sz = @@:self.asteroids[index].size;
+                Vector2 p = @@:self.asteroids[index].pos;
+                if (sz > 1) {
+                    @@:self.spawn_child(p, sz - 1);
+                    @@:self.spawn_child(p, sz - 1);
+                }
+                @@:(true)
+            }
+
+            remove(index: int) {
+                if (index < 0 || (size_t)index >= @@:self.asteroids.size()) {
+                    return;
+                }
+                @@:self.asteroids[index].alive = false;
+            }
+
+            clear() { @@:self.asteroids.clear(); }
+
+            advance(dt: float, court_size: Vector2) {
+                size_t i = 0;
+                while (i < @@:self.asteroids.size()) {
+                    if (@@:self.asteroids[i].alive) {
+                        @@:self.asteroids[i].pos = @@:self.asteroids[i].pos + @@:self.asteroids[i].vel * dt;
+                        if (@@:self.asteroids[i].pos.x < 0.0) { @@:self.asteroids[i].pos.x += court_size.x; }
+                        if (@@:self.asteroids[i].pos.x > court_size.x) { @@:self.asteroids[i].pos.x -= court_size.x; }
+                        if (@@:self.asteroids[i].pos.y < 0.0) { @@:self.asteroids[i].pos.y += court_size.y; }
+                        if (@@:self.asteroids[i].pos.y > court_size.y) { @@:self.asteroids[i].pos.y -= court_size.y; }
+                    }
+                    i = i + 1;
+                }
+            }
+
+            count(): int { @@:((int)@@:self.asteroids.size()) }
+
+            alive_count(): int {
+                int c = 0;
+                size_t i = 0;
+                while (i < @@:self.asteroids.size()) {
+                    if (@@:self.asteroids[i].alive) { c = c + 1; }
+                    i = i + 1;
+                }
+                @@:(c)
+            }
+
+            is_alive(index: int): bool {
+                if (index < 0 || (size_t)index >= @@:self.asteroids.size()) {
+                    @@:return(false)
+                }
+                @@:(@@:self.asteroids[index].alive)
+            }
+
+            position(index: int): Vector2 {
+                if (index < 0 || (size_t)index >= @@:self.asteroids.size()) {
+                    @@:return(Vector2())
+                }
+                @@:(@@:self.asteroids[index].pos)
+            }
+
+            velocity(index: int): Vector2 {
+                if (index < 0 || (size_t)index >= @@:self.asteroids.size()) {
+                    @@:return(Vector2())
+                }
+                @@:(@@:self.asteroids[index].vel)
+            }
+
+            size_of(index: int): int {
+                if (index < 0 || (size_t)index >= @@:self.asteroids.size()) {
+                    @@:return(0)
+                }
+                @@:(@@:self.asteroids[index].size)
+            }
+
+            radius_of(index: int): float {
+                if (index < 0 || (size_t)index >= @@:self.asteroids.size()) {
+                    @@:return(0.0)
+                }
+                int sz = @@:self.asteroids[index].size;
+                if (sz == 3) { @@:return(32.0) }
+                if (sz == 2) { @@:return(18.0) }
+                @@:(10.0)
+            }
+        }
+
+    actions:
+
+        spawn_large(court_size: Vector2) {
+            int edge = (int)(UtilityFunctions::randi() % 4);
+            Vector2 pos = Vector2();
+            if (edge == 0) {
+                pos = Vector2(0.0, rf() * court_size.y);
+            } else if (edge == 1) {
+                pos = Vector2(court_size.x, rf() * court_size.y);
+            } else if (edge == 2) {
+                pos = Vector2(rf() * court_size.x, 0.0);
+            } else {
+                pos = Vector2(rf() * court_size.x, court_size.y);
+            }
+            float angle = rf() * 6.2831853f;
+            float speed = 40.0f + rf() * 30.0f;
+            Vector2 vel = Vector2(std::cos(angle), std::sin(angle)) * speed;
+            @@:self.asteroids.push_back(Asteroid{ pos, vel, 3, true });
+        }
+
+        spawn_child(pos: Vector2, size: int) {
+            float angle = rf() * 6.2831853f;
+            float speed = 60.0f + rf() * 40.0f + (float)(3 - size) * 20.0f;
+            Vector2 vel = Vector2(std::cos(angle), std::sin(angle)) * speed;
+            @@:self.asteroids.push_back(Asteroid{ pos, vel, size, true });
+        }
+
+    domain:
+        asteroids: std::vector<Asteroid> = {}
+}
+
+// ------------------------------------------------------------ AsteroidsGame
+@@[main]
+// Note: ship_host first, difficulty (defaulted) last — C++ requires default
+// arguments to be trailing, unlike Rust/GDScript where the order was free.
+@@system AsteroidsGame(ship_host: Node*, difficulty: int = 2) {
+
+    operations:
+        get_current_state_name(): std::string { @@:(@@:system.state.name) }
+        get_bullets_in_flight(): int { @@:(@@:self.bullets_in_flight) }
+        get_max_bullets(): int       { @@:(@@:self.max_bullets) }
+
+    interface:
+        start()
+        restart()
+        pause()
+        resume()
+        tick(dt: float, court_size: Vector2)
+        ship_hit_asteroid(index: int)
+        bullet_hit_asteroid(index: int)
+        ship_hyperspace()
+        bullet_fired()
+        bullet_expired()
+        get_score(): int
+        get_lives(): int
+        get_wave(): int
+        get_difficulty(): int
+        is_paused(): bool
+
+    machine:
+
+        $Attract {
+            $>() {
+                @@:self.score = 0;
+                @@:self.wave = 1;
+                @@:self.bullets_in_flight = 0;
+            }
+            start() {
+                @@:self.ship.respawn();
+                int n = @@:self.asteroids_for_wave(1);
+                @@:self.field.spawn_wave(n, @@:self.last_court_size);
+                -> $Playing
+            }
+            get_score(): int        { @@:(@@:self.score) }
+            get_lives(): int        { @@:(@@:self.ship.get_lives()) }
+            get_wave(): int         { @@:(@@:self.wave) }
+            get_difficulty(): int   { @@:(@@:self.difficulty) }
+            is_paused(): bool       { @@:(false) }
+        }
+
+        $InGame {
+            pause() {
+                push$ -> $Paused
+            }
+            bullet_fired() {
+                @@:self.bullets_in_flight = @@:self.bullets_in_flight + 1;
+            }
+            bullet_expired() {
+                if (@@:self.bullets_in_flight > 0) {
+                    @@:self.bullets_in_flight = @@:self.bullets_in_flight - 1;
+                }
+            }
+            get_score(): int        { @@:(@@:self.score) }
+            get_lives(): int        { @@:(@@:self.ship.get_lives()) }
+            get_wave(): int         { @@:(@@:self.wave) }
+            get_difficulty(): int   { @@:(@@:self.difficulty) }
+            is_paused(): bool       { @@:(false) }
+        }
+
+        $Playing => $InGame {
+            tick(dt: float, court_size: Vector2) {
+                @@:self.last_court_size = court_size;
+                @@:self.ship.tick(dt);
+                @@:self.field.advance(dt, court_size);
+            }
+            ship_hit_asteroid(index: int) {
+                if (!@@:self.ship.can_be_hit()) {
+                    return;
+                }
+                @@:self.ship.hit();
+                -> $ShipDying
+            }
+            bullet_hit_asteroid(index: int) {
+                if (@@:self.field.split(index)) {
+                    int sz = @@:self.size_points(index);
+                    @@:self.score = @@:self.score + sz * @@:self.difficulty;
+                    if (@@:self.field.alive_count() <= 0) {
+                        -> "all asteroids cleared" $WaveClear
+                    }
+                }
+            }
+            ship_hyperspace() {
+                @@:self.ship.hyperspace();
+            }
+            => $^
+        }
+
+        $ShipDying => $InGame {
+            tick(dt: float, court_size: Vector2) {
+                @@:self.last_court_size = court_size;
+                @@:self.ship.tick(dt);
+                @@:self.field.advance(dt, court_size);
+                if (@@:self.ship.get_current_state_name() == "Respawning") {
+                    -> "ship respawning" $Playing
+                } else if (@@:self.ship.get_current_state_name() == "Dead") {
+                    -> "no lives left" $GameOver
+                }
+            }
+            => $^
+        }
+
+        $WaveClear => $InGame {
+            $>() { @@:self.wave_timer = 0.0; }
+            tick(dt: float, court_size: Vector2) {
+                @@:self.last_court_size = court_size;
+                @@:self.ship.tick(dt);
+                @@:self.wave_timer = @@:self.wave_timer + dt;
+                if (@@:self.wave_timer >= @@:self.wave_pause) {
+                    @@:self.wave = @@:self.wave + 1;
+                    int n = @@:self.asteroids_for_wave(@@:self.wave);
+                    @@:self.field.spawn_wave(n, court_size);
+                    -> "next wave" $Playing
+                }
+            }
+            => $^
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+            get_score(): int        { @@:(@@:self.score) }
+            get_lives(): int        { @@:(@@:self.ship.get_lives()) }
+            get_wave(): int         { @@:(@@:self.wave) }
+            get_difficulty(): int   { @@:(@@:self.difficulty) }
+            is_paused(): bool       { @@:(true) }
+        }
+
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+            get_score(): int        { @@:(@@:self.score) }
+            get_lives(): int        { @@:(@@:self.ship.get_lives()) }
+            get_wave(): int         { @@:(@@:self.wave) }
+            get_difficulty(): int   { @@:(@@:self.difficulty) }
+            is_paused(): bool       { @@:(false) }
+        }
+
+    actions:
+
+        asteroids_for_wave(wave: int): int {
+            int base = 2 + @@:self.difficulty;
+            return base + wave - 1;
+        }
+
+        size_points(index: int): int {
+            int sz = @@:self.field.size_of(index);
+            if (sz == 3) { return 20; }
+            if (sz == 2) { return 50; }
+            return 100;
+        }
+
+    domain:
+        difficulty: int = difficulty
+        score: int = 0
+        wave: int = 1
+        wave_timer: float = 0.0
+        wave_pause: float = 2.0
+        bullets_in_flight: int = 0
+        max_bullets: int = 4
+        last_court_size: Vector2 = Vector2(640, 480)
+        ship: Ship = @@Ship(ship_host)
+        field: AsteroidField = @@AsteroidField()
+}

@@ -1,0 +1,10 @@
+[configuration]
+entry_symbol = "asteroids_library_init"
+compatibility_minimum = 4.2
+reloadable = false
+
+[libraries]
+macos.debug = "res://bin/libasteroids.macos.template_release.arm64.dylib"
+macos.release = "res://bin/libasteroids.macos.template_release.arm64.dylib"
+web.debug.wasm32 = "res://bin/libasteroids.web.template_release.wasm32.nothreads.wasm"
+web.release.wasm32 = "res://bin/libasteroids.web.template_release.wasm32.nothreads.wasm"
