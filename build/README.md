@@ -35,8 +35,11 @@ it. The browser caches the engine once, so switching language tabs is instant.
 
 ## Reproducibility — what a clean clone still needs
 
-The deployable bundles are committed, so the **site runs from a clone**. Rebuilding
-the ports is not yet one-command — it assumes this toolchain is present locally:
+The deployable bundles are committed, so the **site runs from a clone**. To
+*rebuild* the ports, run **`bash build/bootstrap.sh`** — it installs/builds the
+auto-installable toolchain (emsdk 4.0.20, Rust nightly + rust-src, and godot-cpp
+at `godot-4.5-stable` built arm64 + web) and reports what you must supply by hand
+(`bash build/bootstrap.sh --check` reports without installing). The pieces:
 
 - **Godot 4.6.2** on `PATH` (or `GODOT=`) + the Web export templates.
 - **framec** (`FRAMEC=`) — for C++, needs the no-exceptions codegen (issue #86).
