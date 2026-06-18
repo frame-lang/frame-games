@@ -42,16 +42,17 @@ export default defineConfig(({ command }) => ({
       // into every served HTML. The Godot-WASM iframe is *not* a Vite page —
       // injecting that script collides with Godot's bootstrap and the canvas
       // stays grey forever. This middleware intercepts requests under
-      // games/*/versions/godot-wasm/*.html and streams the file verbatim
-      // (with the same COOP/COEP headers as the global server config) so
-      // Godot's loader runs cleanly.
+      // games/*/versions/<any-godot-variant>/*.html and streams the file
+      // verbatim (with the same COOP/COEP headers as the global server config)
+      // so Godot's loader runs cleanly. Matches every language bundle
+      // (godot-gdscript / godot-rust / godot-cpp / godot-c), not just one.
       name: "godot-html-passthrough",
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
           if (!req.url) return next();
           const url = req.url.split("?")[0];
           if (
-            /^\/games\/[^/]+\/versions\/godot-wasm\//.test(url) &&
+            /^\/games\/[^/]+\/versions\/[^/]+\//.test(url) &&
             url.endsWith(".html")
           ) {
             const filePath = join(__dirname, url);

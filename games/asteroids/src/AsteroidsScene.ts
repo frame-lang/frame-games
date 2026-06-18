@@ -396,17 +396,33 @@ export class AsteroidsScene extends Phaser.Scene {
     }
   }
 
-  // Mirrors main.gd's label_center text per state. Attract advertises the
-  // controls using the same icon glyphs as the mobile touch buttons (↻ for
-  // restart, ⚡ for hyperspace, ⏸ for pause) so keyboard + touch users see
-  // a consistent symbol vocabulary.
+  // Touch devices (where the on-screen button bar shows) get the button
+  // glyphs ↻/⚡/⏸; keyboard users get the actual keys R/H/P. Same predicate
+  // as the CSS that reveals the mobile buttons (plus the ?touch=1 override),
+  // so the advertised control always matches the affordance the player has.
+  private isTouch(): boolean {
+    return (
+      document.body.classList.contains("force-touch") ||
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches
+    );
+  }
+
+  // Mirrors main.gd's label_center text per state, device-aware so neither a
+  // desktop player sees a phantom ↻ button nor a touch player sees a key they
+  // can't press.
   private centerMessage(s: string): string {
+    const touch = this.isTouch();
+    const verb = touch ? "Tap" : "Press";
+    const restart = touch ? "↻" : "R";
+    const hyper = touch ? "⚡" : "H";
+    const pause = touch ? "⏸" : "P";
+    const start = touch ? "Tap to start" : "Press any key to start";
     switch (s) {
       case "Attract":
-        return "A S T E R O I D S\n\nPress any key to start\n(⚡ hyperspace · ⏸ pause)";
+        return `A S T E R O I D S\n\n${start}\n(${hyper} hyperspace · ${pause} pause)`;
       case "WaveClear": return "WAVE CLEAR";
       case "Paused": return "PAUSED";
-      case "GameOver": return "GAME OVER\n\nPress ↻ to restart";
+      case "GameOver": return `GAME OVER\n\n${verb} ${restart} to restart`;
       default: return "";
     }
   }

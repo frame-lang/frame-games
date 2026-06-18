@@ -5,7 +5,7 @@
 #   build/godot.sh <id>       # build a single game's Web export
 #   build/godot.sh all        # build every registered game
 #
-# Drops the Web export at games/<id>/versions/godot-wasm/
+# Drops the Web export at games/<id>/versions/godot-gdscript/
 # (index.html / .pck / .wasm / .js / .audio.worklet.js / …).
 # The game page's iframe loads from that path; the .pck probe in
 # game.ts confirms the build actually ran before embedding.
@@ -42,7 +42,7 @@ case "${1:-}" in
         echo "=========================================================="
         echo "==> summary"
         for g in asteroids; do
-            if [[ -f "$REPO_DIR/games/$g/versions/godot-wasm/index.pck" ]]; then
+            if [[ -f "$REPO_DIR/games/$g/versions/godot-gdscript/index.pck" ]]; then
                 printf "    ok   %s\n" "$g"
             else
                 printf "    MISS %s\n" "$g"
@@ -59,7 +59,7 @@ esac
 
 GAME="$1"
 STAGE_DIR="$REPO_DIR/build/godot-$GAME"
-OUT_DIR="$REPO_DIR/games/$GAME/versions/godot-wasm"
+OUT_DIR="$REPO_DIR/games/$GAME/versions/godot-gdscript"
 
 SRC_PROJECT="$REPO_DIR/games/$GAME"
 FRAME_SRC="$SRC_PROJECT/frame/$GAME.fgd"
@@ -107,7 +107,7 @@ const CHANNEL_NAME := "frame-games:state:${GAME}"
 
 var _channel: JavaScriptObject = null
 var _on_message_ref: JavaScriptObject = null
-var _last_sig := ""
+var _last_sig: String = ""
 
 func _ready() -> void:
     if not OS.has_feature("web"):
@@ -127,10 +127,10 @@ func _on_channel_message(args) -> void:
 func _publish(force: bool) -> void:
     if _channel == null:
         return
-    var scene = get_tree().get_current_scene()
+    var scene: Node = get_tree().get_current_scene()
     if scene == null:
         return
-    var fsm = scene.get("fsm")
+    var fsm: Variant = scene.get("fsm")
     if fsm == null:
         return
 EOF
@@ -141,17 +141,17 @@ EOF
             arr="${BASH_REMATCH[1]}"
             idx="${BASH_REMATCH[2]}"
             cat <<EOF
-    var v_$name := ""
+    var v_$name: String = ""
     if $arr != null and $arr.size() > $idx:
         v_$name = String($expr.__compartment.state)
 EOF
         else
             cat <<EOF
-    var v_$name := String($expr.__compartment.state)
+    var v_$name: String = String($expr.__compartment.state)
 EOF
         fi
     done
-    echo '    var sig := ""'
+    echo '    var sig: String = ""'
     for sys in "${SYSTEMS[@]}"; do
         name="${sys%%:*}"
         echo "    sig += v_$name + \"|\""
@@ -160,7 +160,7 @@ EOF
     if not force and sig == _last_sig:
         return
     _last_sig = sig
-    var snapshot := JavaScriptBridge.create_object("Object")
+    var snapshot: JavaScriptObject = JavaScriptBridge.create_object("Object")
 EOF
     for sys in "${SYSTEMS[@]}"; do
         name="${sys%%:*}"
@@ -207,7 +207,7 @@ script_export_mode=2
 
 custom_template/debug=""
 custom_template/release=""
-variant/extensions_support=false
+variant/extensions_support=true
 vram_texture_compression/for_desktop=true
 vram_texture_compression/for_mobile=false
 html/export_icon=true
@@ -244,3 +244,10 @@ if [[ ! -f "$OUT_DIR/index.pck" ]]; then
 fi
 
 echo "==> built $GAME ($(du -sh "$OUT_DIR" | cut -f1))"
+
+# Split the ~46 MB engine out to a shared games/<id>/versions/_engine/ and slim
+# this dir to just the .pck + thin loader (exported with extensions_support=true
+# so the engine is byte-identical to the C/C++/Rust dlink bundles → one engine
+# the browser caches across every language tab).
+echo "==> split into shared engine (../_engine) + thin game dir"
+bash "$REPO_DIR/build/share-engine.sh" "$OUT_DIR" "$OUT_DIR"

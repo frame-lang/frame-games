@@ -1,0 +1,16 @@
+[package]
+name = "spike_ext"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+# gdext from git master. api-custom introspects the local `godot` binary
+# (4.6.2) so the bindings match the engine exactly; experimental-wasm enables
+# the web/emscripten path; lazy-function-tables keeps the wasm function table
+# small enough for the browser.
+[dependencies.godot]
+git = "https://github.com/godot-rust/gdext"
+branch = "master"
+features = ["api-custom", "experimental-wasm", "lazy-function-tables"]

@@ -367,6 +367,36 @@ body.force-touch .toolbar-sep { display: none; }
   display: flex;
   gap: 8px;
 }
+/* Implementation picker — a drop-down so the list scales to every language
+   variant (JS / GDScript / Rust / C++ / C) without a row of buttons. */
+.version-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 32px 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  /* native chevron, nudged in via background so padding-right above clears it */
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.version-select:hover {
+  border-color: var(--accent);
+}
+.version-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.version-select option:disabled {
+  color: var(--muted);
+}
 .tab {
   background: var(--panel-2);
   color: var(--muted);

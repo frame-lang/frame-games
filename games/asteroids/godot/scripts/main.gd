@@ -310,9 +310,17 @@ func _update_labels() -> void:
         fsm.get_score(), fsm.get_lives(), fsm.get_wave(), fsm.get_difficulty(),
         fsm.ship.get_hyperspaces_remaining()]
 
+    # Device-aware control hints: touch devices (the on-screen button bar) get
+    # the button glyphs ↻/⚡/⏸; keyboard users get the actual keys R/H/P.
+    var touch := DisplayServer.is_touchscreen_available()
+    var verb := "Tap" if touch else "Press"
+    var rtok := "↻" if touch else "R"
+    var htok := "⚡" if touch else "H"
+    var ptok := "⏸" if touch else "P"
+    var startmsg := "Tap to start" if touch else "Press any key to start"
     match fsm.get_current_state_name():
         "Attract":
-            label_center.text = "A S T E R O I D S\n\nPress any key to start\n(⚡ hyperspace · ⏸ pause)"
+            label_center.text = "A S T E R O I D S\n\n%s\n(%s hyperspace · %s pause)" % [startmsg, htok, ptok]
         "Playing":
             label_center.text = ""
         "ShipDying":
@@ -322,7 +330,7 @@ func _update_labels() -> void:
         "Paused":
             label_center.text = "PAUSED"
         "GameOver":
-            label_center.text = "GAME OVER\n\nPress ↻ to restart"
+            label_center.text = "GAME OVER\n\n%s %s to restart" % [verb, rtok]
         _:
             label_center.text = ""
 

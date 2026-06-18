@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { marked } from "marked";
 import { FsmPanel, liveState, splitFrameSystems, type MachineView } from "./fsm-panel";
-import { GAMES, channelName, versionEntry } from "./games";
+import { GAMES, channelName, type VersionMeta } from "./games";
 import { mountMobileControls } from "./mobile-controls";
 import { PageController } from "./page.machine.js";
 
@@ -96,23 +96,52 @@ let ctrl: PageCtrl | null = null;
 // listener (apply snapshots from the Godot autoload when active).
 let activeRuntime: "js" | "godot" = "js";
 
+// A version with an `entry` is an external Godot WASM bundle; one without
+// (the "js" entry) is the in-page Phaser runtime. Versions flagged
+// `available: false` are wired but not yet built — shown disabled so the
+// nav advertises the full language roadmap without offering a dead link.
+const isAvailable = (v: VersionMeta): boolean => v.available !== false;
+
 function renderTabs(active: string): void {
-  tabsEl.replaceChildren(
-    ...manifest.versions.map((v) => {
-      const b = document.createElement("button");
-      b.textContent = v.label;
-      b.className = "tab" + (v.id === active ? " active" : "");
-      b.dataset.v = v.id;
-      b.onclick = () => switchVersion(v.id);
-      return b;
-    }),
-  );
+  const select = document.createElement("select");
+  select.className = "version-select";
+  select.id = "version-select";
+  select.setAttribute("aria-label", "Implementation");
+  for (const v of manifest.versions) {
+    const opt = document.createElement("option");
+    opt.value = v.id;
+    opt.textContent = isAvailable(v) ? v.label : `${v.label} (soon)`;
+    opt.disabled = !isAvailable(v);
+    if (v.id === active) opt.selected = true;
+    select.appendChild(opt);
+  }
+  select.onchange = () => switchVersion(select.value);
+  tabsEl.replaceChildren(select);
 }
+
+// Path of the Godot bundle the Godot stage should load. Set before switching
+// to the Godot runtime so loadGodot() (driven by the PageController's
+// show_godot handler) picks up the right language variant.
+let selectedGodotEntry: string | undefined;
 
 function switchVersion(id: string): void {
   if (!ctrl) return; // page controller not ready yet
-  if (id === "js") ctrl.switch_to_js();
-  else if (id === "godot-wasm") ctrl.switch_to_godot();
+  const v = manifest.versions.find((x) => x.id === id);
+  if (!v) return;
+  if (v.entry) {
+    // External Godot WASM bundle. Loading a different language is just a
+    // different bundle in the same iframe — no new PageController state.
+    selectedGodotEntry = v.entry;
+    if (activeRuntime === "godot") {
+      // Already showing Godot: swap the bundle in place.
+      godotLoaded = false;
+      void loadGodot();
+    } else {
+      ctrl.switch_to_godot(); // show_godot() → loadGodot() reads selectedGodotEntry
+    }
+  } else {
+    ctrl.switch_to_js();
+  }
   renderTabs(id);
 }
 
@@ -135,7 +164,9 @@ function withBase(path: string): string {
 // Lazy: only fetch/boot the (heavy) Godot WASM build when its tab is opened.
 async function loadGodot(): Promise<void> {
   godotLoaded = true;
-  const entry = versionEntry(manifest, "godot-wasm")?.entry;
+  // The language variant chosen in the drop-down; fall back to the first
+  // external bundle in the manifest on initial load.
+  const entry = selectedGodotEntry ?? manifest.versions.find((v) => v.entry)?.entry;
   if (!entry) return godotNote("No Godot build is configured for this game.");
   const src = withBase(entry);
   // Probe a Godot-only artifact (the .pck) — Vite's SPA fallback returns 200

@@ -1,0 +1,10 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.2
+reloadable = false
+
+[libraries]
+macos.debug = "res://../rust/target/aarch64-apple-darwin/release/libspike_ext.dylib"
+macos.release = "res://../rust/target/aarch64-apple-darwin/release/libspike_ext.dylib"
+web.debug.wasm32 = "res://../rust/target/wasm32-unknown-emscripten/debug/spike_ext.wasm"
+web.release.wasm32 = "res://../rust/target/wasm32-unknown-emscripten/release/spike_ext.wasm"

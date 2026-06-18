@@ -1,0 +1,12 @@
+# gdext web/emscripten build flags (single-threaded variant — the -pthread /
+# +atomics lines from the gdext book are intentionally omitted for the first
+# spike; we match Godot's nothreads dlink template to get the simplest
+# possible first success, then revisit threading for the real port).
+[target.wasm32-unknown-emscripten]
+rustflags = [
+    "-C", "link-args=-sSIDE_MODULE=2",
+    "-C", "llvm-args=-enable-emscripten-cxx-exceptions=0",
+    "-Z", "default-visibility=hidden",
+    "-Z", "link-native-libraries=no",
+    "-Z", "emscripten-wasm-eh=false",
+]

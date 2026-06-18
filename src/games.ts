@@ -15,9 +15,15 @@ export interface MachineMeta {
 }
 
 export interface VersionMeta {
-  id: string; // "js" / "godot-wasm" / …
-  label: string;
-  entry?: string; // public path to the version's playable, when external
+  id: string; // "js" / "godot-gdscript" / "godot-rust" / …
+  label: string; // shown in the version drop-down (e.g. "Godot · Rust")
+  /** Public path to the version's playable when it's an external bundle (a
+   * Godot WASM export). Versions with no `entry` are the in-page JS runtime. */
+  entry?: string;
+  /** Set false for a version that's planned/wired but whose bundle isn't built
+   * yet — kept in the manifest for the record, hidden from the drop-down until
+   * its export is verified. Defaults to available (true). */
+  available?: boolean;
 }
 
 /**
@@ -68,6 +74,6 @@ export const GAMES: Record<string, GameEntry> = {
 // snapshots on this channel; pop-out FSM viewers for the same game listen.
 export const channelName = (gameId: string): string => `frame-games:state:${gameId}`;
 
-// Find a version entry by id (e.g. "godot-wasm"); returns undefined if absent.
+// Find a version entry by id (e.g. "godot-gdscript"); returns undefined if absent.
 export const versionEntry = (manifest: GameManifest, id: string): VersionMeta | undefined =>
   manifest.versions.find((v) => v.id === id);
