@@ -13,6 +13,8 @@
 #   - GDRUST_GODOT_BIN must point at the godot binary (api-custom dumps its API).
 #   - wasm flags live in build/spike-rust/rust/.cargo/config.toml (SIDE_MODULE=2).
 #   - macOS host dylib is arm64 (matches the arm64 godot we export under; no x86).
+#   - FRAMEC regenerates src/asteroids.rs from asteroids.frs (the FSM source);
+#     gameplay.rs/lib.rs are hand-written and not generated.
 # ============================================================
 set -euo pipefail
 
@@ -22,7 +24,11 @@ RUST="$SPIKE/rust"
 GD="$SPIKE/godot"
 OUT="$REPO/games/asteroids/versions/godot-rust"
 GODOT="${GODOT:-godot}"
+FRAMEC="${FRAMEC:-framec}"
 export GDRUST_GODOT_BIN="${GDRUST_GODOT_BIN:-$(command -v "$GODOT")}"
+
+echo "==> [0/4] framec: asteroids.frs -> src/asteroids.rs (FSM)"
+"$FRAMEC" -l rust "$RUST/asteroids.frs" > "$RUST/src/asteroids.rs"
 
 echo "==> [1/4] cargo: web wasm32 side module (build-std)"
 ( cd "$RUST" && cargo +nightly build -Zbuild-std \

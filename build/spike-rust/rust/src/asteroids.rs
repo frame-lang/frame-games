@@ -1432,6 +1432,8 @@ mod _asteroid_field_framec {
 pub use _asteroid_field_framec::*;
 
 // ------------------------------------------------------------ AsteroidsGame
+// Note: difficulty first, ship_host last — Rust has no trailing-default
+// constraint, so the param order is free (the C++ port had to flip them).
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
@@ -2090,7 +2092,7 @@ mod _asteroids_game_framec {
             self.wave_timer = self.wave_timer + dt;
             if self.wave_timer >= self.wave_pause {
                 self.wave = self.wave + 1;
-                let n: i32 = self.asteroids_for_wave(self.wave);
+                let n: i32 = { let __rs_tmp_arg = self.wave; self.asteroids_for_wave(__rs_tmp_arg) };
                 self.field.spawn_wave(n, court_size);
                 let mut __compartment = self.__prepareEnter("Playing");
                 self.__transition(__compartment);
@@ -2186,3 +2188,4 @@ mod _asteroids_game_framec {
     }
 }
 pub use _asteroids_game_framec::*;
+
