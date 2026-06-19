@@ -175,6 +175,8 @@ private:
         label_center->add_theme_font_size_override("font_size", 28);
         label_center->set_position(Vector2(0, court_size.y * 0.4f));
         label_center->set_size(Vector2(court_size.x, 120));
+        label_center->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+        label_center->set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER);
         canvas->add_child(label_center);
     }
 

@@ -8,6 +8,8 @@ config/features=PackedStringArray("4.6")
 [display]
 window/size/viewport_width=800
 window/size/viewport_height=600
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
 
 [rendering]
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
