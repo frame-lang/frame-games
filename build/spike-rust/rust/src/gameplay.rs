@@ -4,7 +4,7 @@
 // host effects the Ship FSM fires via call_deferred.
 use godot::prelude::*;
 use godot::classes::{INode2D, Node2D, Label, CanvasLayer, Input, Time, RenderingServer, DisplayServer};
-use godot::global::Key;
+use godot::global::{Key, HorizontalAlignment, VerticalAlignment};
 
 use crate::asteroids::AsteroidsGame;
 
@@ -216,6 +216,8 @@ impl AsteroidsMain {
         center.add_theme_font_size_override("font_size", 28);
         center.set_position(Vector2::new(0.0, self.court_size.y * 0.4));
         center.set_size(Vector2::new(self.court_size.x, 120.0));
+        center.set_horizontal_alignment(HorizontalAlignment::CENTER);
+        center.set_vertical_alignment(VerticalAlignment::CENTER);
         canvas.add_child(&center);
         self.label_center = Some(center);
 

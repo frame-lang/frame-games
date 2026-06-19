@@ -26,7 +26,7 @@
     }
   ],
   "versions": [
-    { "id": "js", "label": "JavaScript" },
+    { "id": "js", "label": "Phaser · JS" },
     { "id": "godot-gdscript", "label": "Godot · GDScript", "entry": "/games/asteroids/versions/godot-gdscript/index.html" },
     { "id": "godot-c", "label": "Godot · C", "entry": "/games/asteroids/versions/godot-c/index.html" },
     { "id": "godot-rust", "label": "Godot · Rust", "entry": "/games/asteroids/versions/godot-rust/index.html" },

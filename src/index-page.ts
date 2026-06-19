@@ -25,16 +25,7 @@ grid.replaceChildren(
     t.className = "teaches";
     t.textContent = m.summary;
 
-    const versions = document.createElement("div");
-    versions.className = "versions";
-    for (const v of m.versions) {
-      const badge = document.createElement("span");
-      badge.className = "badge";
-      badge.textContent = v.label;
-      versions.appendChild(badge);
-    }
-
-    a.append(h, t, versions);
+    a.append(h, t);
     return a;
   }),
 );
