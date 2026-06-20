@@ -123,15 +123,17 @@ function renderTabs(active: string): void {
 // to the Godot runtime so loadGodot() (driven by the PageController's
 // show_godot handler) picks up the right language variant.
 let selectedGodotEntry: string | undefined;
+let selectedGodotProbe: string | undefined;
 
 function switchVersion(id: string): void {
   if (!ctrl) return; // page controller not ready yet
   const v = manifest.versions.find((x) => x.id === id);
   if (!v) return;
   if (v.entry) {
-    // External Godot WASM bundle. Loading a different language is just a
-    // different bundle in the same iframe — no new PageController state.
+    // External WASM bundle (Godot or Flame). Loading a different language is
+    // just a different bundle in the same iframe — no new PageController state.
     selectedGodotEntry = v.entry;
+    selectedGodotProbe = v.probe;
     if (activeRuntime === "godot") {
       // Already showing Godot: swap the bundle in place.
       godotLoaded = false;
@@ -166,24 +168,29 @@ async function loadGodot(): Promise<void> {
   godotLoaded = true;
   // The language variant chosen in the drop-down; fall back to the first
   // external bundle in the manifest on initial load.
-  const entry = selectedGodotEntry ?? manifest.versions.find((v) => v.entry)?.entry;
-  if (!entry) return godotNote("No Godot build is configured for this game.");
+  const found = selectedGodotEntry
+    ? manifest.versions.find((v) => v.entry === selectedGodotEntry)
+    : manifest.versions.find((v) => v.entry);
+  const entry = found?.entry;
+  if (!entry) return godotNote("No build is configured for this game.");
   const src = withBase(entry);
-  // Probe a Godot-only artifact (the .pck) — Vite's SPA fallback returns 200
-  // for any unknown index.html, so HEAD on the entry can lie and we'd embed
-  // the page inside itself. The .pck only exists when the real export ran.
-  // Vite's fallback also serves the HTML index for .pck requests with
-  // Content-Type: text/html, so a plain `res.ok` check passes even when no
-  // build exists — reject the HTML fallback explicitly.
-  const pckProbe = src.replace(/\.html(?:\?.*)?$/, ".pck");
+  // Probe a build-only artifact — Vite's SPA fallback returns 200 for any
+  // unknown index.html, so HEAD on the entry can lie and we'd embed the page
+  // inside itself. Default probe is the Godot `.pck`; non-Godot bundles (Flame)
+  // declare their own marker via `probe`. The fallback also serves the HTML
+  // index for these requests with Content-Type: text/html, so a plain `res.ok`
+  // check passes even when no build exists — reject the HTML fallback too.
+  const probe = (selectedGodotProbe ?? found?.probe)
+    ? withBase((selectedGodotProbe ?? found?.probe)!)
+    : src.replace(/\.html(?:\?.*)?$/, ".pck");
   try {
-    const res = await fetch(pckProbe, { method: "HEAD" });
+    const res = await fetch(probe, { method: "HEAD" });
     if (!res.ok) throw new Error(String(res.status));
     if ((res.headers.get("content-type") ?? "").includes("text/html")) {
       throw new Error("spa-fallback");
     }
   } catch {
-    return godotNote("Godot WASM build not generated yet — run `npm run build:godot`.");
+    return godotNote("WASM build not generated yet — run its build script.");
   }
   const frame = document.createElement("iframe");
   frame.src = src;

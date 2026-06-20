@@ -30,6 +30,7 @@
     { "id": "godot-gdscript", "label": "Godot · GDScript", "entry": "/games/asteroids/versions/godot-gdscript/index.html" },
     { "id": "godot-c", "label": "Godot · C", "entry": "/games/asteroids/versions/godot-c/index.html" },
     { "id": "godot-rust", "label": "Godot · Rust", "entry": "/games/asteroids/versions/godot-rust/index.html" },
-    { "id": "godot-cpp", "label": "Godot · C++", "entry": "/games/asteroids/versions/godot-cpp/index.html" }
+    { "id": "godot-cpp", "label": "Godot · C++", "entry": "/games/asteroids/versions/godot-cpp/index.html" },
+    { "id": "flame", "label": "Flame · Dart", "entry": "/games/asteroids/versions/flame/index.html", "probe": "/games/asteroids/versions/flame/flutter_bootstrap.js" }
   ]
 }

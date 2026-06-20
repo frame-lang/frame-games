@@ -15,7 +15,8 @@
     "build:godot": "bash build/godot.sh",
     "build:godot-c": "bash build/godot-c.sh",
     "build:godot-rust": "bash build/godot-rust.sh",
-    "build:godot-cpp": "bash build/godot-cpp.sh"
+    "build:godot-cpp": "bash build/godot-cpp.sh",
+    "build:flame": "bash build/flame.sh"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

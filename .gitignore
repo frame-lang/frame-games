@@ -11,6 +11,11 @@ build/spike-rust/
 build/spike-cpp/
 build/spike-c/
 build/min-cpp/
+# Flame (Dart) spike: source is force-added (asteroids.fdart, app/lib/main.dart,
+# app/pubspec.*, app/web/); the Flutter project's generated + build artifacts
+# below are local only.
+build/spike-flame/
+
 
 # Scratch copies of Godot projects used during the Web exports (build/godot.sh).
 build/godot-*/
