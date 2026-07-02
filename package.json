@@ -22,7 +22,8 @@
     "build:three": "bash build/three.sh",
     "build:ruby": "bash build/ruby.sh",
     "build:java": "bash build/java.sh",
-    "build:kotlin": "bash build/kotlin.sh"
+    "build:kotlin": "bash build/kotlin.sh",
+    "build:swift": "bash build/swift.sh"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

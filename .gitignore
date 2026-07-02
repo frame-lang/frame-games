@@ -76,3 +76,8 @@ build/spike-kotlin-web/
 # generated AsteroidsGame.swift is local only. (Browser build pending SwiftWasm.)
 build/spike-swift/
 __pycache__/
+# SwiftWasm spike: source is force-added (Package.swift, Package.resolved,
+# .swift-version pin, Sources/AsteroidsSwift/{host,main}.swift, boot.js,
+# shell.html, package.json); generated AsteroidsGame.swift, .build/, pkg/,
+# node_modules and the esbuild bundle are local only.
+build/spike-swift-web/

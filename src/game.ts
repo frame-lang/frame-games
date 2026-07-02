@@ -160,6 +160,9 @@ function godotNote(msg: string): void {
 // correctly when the site is served from a subpath.
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 function withBase(path: string): string {
+  // Fully-qualified entries (the PHP port lives on its own origin — see the
+  // credentialless note in loadGodot) pass through untouched.
+  if (/^https?:\/\//.test(path)) return path;
   return BASE ? BASE + path : path;
 }
 
@@ -193,6 +196,15 @@ async function loadGodot(): Promise<void> {
     return godotNote("WASM build not generated yet — run its build script.");
   }
   const frame = document.createElement("iframe");
+  // Cross-origin bundles (currently the PHP port) are embedded `credentialless`:
+  // the page is cross-origin-isolated (COOP/COEP for the Godot ports'
+  // SharedArrayBuffer), and a same-origin iframe inherits that isolation —
+  // which php-wasm cannot run under. A *cross-origin* credentialless iframe is
+  // allowed into a COEP:require-corp page without CORP headers AND is not
+  // isolated itself, so php-wasm works. Same-origin frames are left alone.
+  const isCrossOrigin =
+    /^https?:\/\//.test(src) && new URL(src).origin !== location.origin;
+  if (isCrossOrigin) frame.setAttribute("credentialless", "");
   frame.src = src;
   frame.className = "godot-frame";
   frame.title = `${manifest.title} — Godot (WASM)`;

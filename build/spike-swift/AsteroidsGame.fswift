@@ -12,7 +12,11 @@
 // BLOCKED on framec #156: deferred domain fields (host/ship — initializers
 // reference system params, RFC-0017) are emitted uninitialized + non-optional,
 // violating Swift definite initialization. Expected fix: emit `var x: T!`.
-import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(WASILibc)
+import WASILibc
+#endif
 
 public class Vec2 {
     public var x: Double
