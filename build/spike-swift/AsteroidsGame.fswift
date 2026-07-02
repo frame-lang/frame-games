@@ -1,0 +1,496 @@
+@@[target("swift")]
+
+// Asteroids — Swift port of the Frame controller. Same three systems as every
+// other port. Swift is a typed backend with native-passthrough control flow:
+// native Swift `if cond {` / `while cond {` (no parens — Swift style), and the
+// Frame splices `@@:self.X` (domain/self), `$.x` (state var), `@@:(e)` /
+// `@@:return(e)` (return slot), transitions. Swift specifics: framec emits
+// domain fields as `public`, so preamble types they reference must be `public`
+// too; Vec2 is a class with methods (operator overloading exists in Swift but
+// methods keep parity with the Java/TS ports).
+//
+// BLOCKED on framec #156: deferred domain fields (host/ship — initializers
+// reference system params, RFC-0017) are emitted uninitialized + non-optional,
+// violating Swift definite initialization. Expected fix: emit `var x: T!`.
+import Foundation
+
+public class Vec2 {
+    public var x: Double
+    public var y: Double
+    public init(_ x: Double, _ y: Double) { self.x = x; self.y = y }
+    public func add(_ o: Vec2) -> Vec2 { return Vec2(x + o.x, y + o.y) }
+    public func scale(_ s: Double) -> Vec2 { return Vec2(x * s, y * s) }
+    public func length() -> Double { return (x * x + y * y).squareRoot() }
+    public func distanceTo(_ o: Vec2) -> Double { return ((x - o.x) * (x - o.x) + (y - o.y) * (y - o.y)).squareRoot() }
+    public static func fromAngle(_ a: Double, _ speed: Double) -> Vec2 { return Vec2(cos(a) * speed, sin(a) * speed) }
+}
+
+public class Asteroid {
+    public var pos: Vec2
+    public var vel: Vec2
+    public var size: Int
+    public var alive: Bool
+    public init(_ pos: Vec2, _ vel: Vec2, _ size: Int, _ alive: Bool) {
+        self.pos = pos; self.vel = vel; self.size = size; self.alive = alive
+    }
+}
+
+public protocol IShipHost {
+    func warp_out()
+    func warp_in()
+    func spawn_explosion()
+    func reset_ship()
+}
+
+func rf() -> Double { return Double.random(in: 0..<1) }
+
+// ------------------------------------------------------------ Ship
+@@system Ship(host: IShipHost) {
+
+    operations:
+        get_current_state_name(): String { @@:(@@:system.state.name) }
+        get_hyperspaces_remaining(): Int { @@:(@@:self.hyperspaces_remaining) }
+
+    interface:
+        tick(dt: Double)
+        hit()
+        hyperspace()
+        respawn()
+        fire()
+        can_fire(): Bool
+        can_be_hit(): Bool
+        can_hyperspace(): Bool
+        is_visible(): Bool
+        is_alive(): Bool
+        get_lives(): Int
+
+    machine:
+
+        $Alive {
+            $.cooldown: Double = 0.0
+            tick(dt: Double) {
+                if $.cooldown > 0.0 {
+                    $.cooldown = $.cooldown - dt
+                }
+            }
+            fire() { $.cooldown = 0.22 }
+            hit() { -> $Exploding }
+            hyperspace() {
+                if @@:self.hyperspaces_remaining > 0 {
+                    @@:self.hyperspaces_remaining = @@:self.hyperspaces_remaining - 1
+                    -> $InHyperspace
+                }
+            }
+            can_fire(): Bool       { @@:($.cooldown <= 0.0) }
+            can_be_hit(): Bool     { @@:(true) }
+            can_hyperspace(): Bool { @@:(@@:self.hyperspaces_remaining > 0) }
+            is_visible(): Bool     { @@:(true) }
+            is_alive(): Bool       { @@:(true) }
+            get_lives(): Int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $InHyperspace {
+            $.timer: Double = 0.0
+            $.duration: Double = 0.4
+            $>() { @@:self.host.warp_out() }
+            <$() { @@:self.host.warp_in() }
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> "warp complete" $Alive
+                }
+            }
+            can_fire(): Bool       { @@:(false) }
+            can_be_hit(): Bool     { @@:(false) }
+            can_hyperspace(): Bool { @@:(false) }
+            is_visible(): Bool     { @@:(false) }
+            is_alive(): Bool       { @@:(true) }
+            get_lives(): Int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $Exploding {
+            $.timer: Double = 0.0
+            $.duration: Double = 1.0
+            $>() { @@:self.host.spawn_explosion() }
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    @@:self.lives_remaining = @@:self.lives_remaining - 1
+                    if @@:self.lives_remaining <= 0 {
+                        -> "no lives left" $Dead
+                    } else {
+                        -> "lives remain" $Respawning
+                    }
+                }
+            }
+            can_fire(): Bool       { @@:(false) }
+            can_be_hit(): Bool     { @@:(false) }
+            can_hyperspace(): Bool { @@:(false) }
+            is_visible(): Bool     { @@:(true) }
+            is_alive(): Bool       { @@:(false) }
+            get_lives(): Int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $Respawning {
+            $.timer: Double = 0.0
+            $.duration: Double = 2.0
+            $>() { @@:self.host.reset_ship() }
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> "invuln expired" $Alive
+                }
+            }
+            can_fire(): Bool       { @@:(true) }
+            can_be_hit(): Bool     { @@:(false) }
+            can_hyperspace(): Bool { @@:(false) }
+            is_visible(): Bool     { @@:(true) }
+            is_alive(): Bool       { @@:(true) }
+            get_lives(): Int       { @@:(@@:self.lives_remaining) }
+        }
+
+        $Dead {
+            respawn() {
+                @@:self.lives_remaining = @@:self.starting_lives
+                @@:self.hyperspaces_remaining = @@:self.starting_hyperspaces
+                -> $Respawning
+            }
+            can_fire(): Bool       { @@:(false) }
+            can_be_hit(): Bool     { @@:(false) }
+            can_hyperspace(): Bool { @@:(false) }
+            is_visible(): Bool     { @@:(false) }
+            is_alive(): Bool       { @@:(false) }
+            get_lives(): Int       { @@:(0) }
+        }
+
+    domain:
+        host: IShipHost = host
+        lives_remaining: Int = 3
+        starting_lives: Int = 3
+        hyperspaces_remaining: Int = 3
+        starting_hyperspaces: Int = 3
+}
+
+// ------------------------------------------------------------ AsteroidField
+@@system AsteroidField {
+
+    interface:
+        spawn_wave(count: Int, court_size: Vec2)
+        split(index: Int): Bool
+        remove(index: Int)
+        clear()
+        advance(dt: Double, court_size: Vec2)
+        count(): Int
+        alive_count(): Int
+        is_alive(index: Int): Bool
+        position(index: Int): Vec2
+        velocity(index: Int): Vec2
+        size_of(index: Int): Int
+        radius_of(index: Int): Double
+
+    machine:
+
+        $Active {
+            spawn_wave(count: Int, court_size: Vec2) {
+                @@:self.asteroids = []
+                var i: Int = 0
+                while i < count {
+                    @@:self.spawn_large(court_size)
+                    i = i + 1
+                }
+            }
+
+            split(index: Int): Bool {
+                if index < 0 || index >= @@:self.asteroids.count {
+                    @@:return(false)
+                }
+                if !@@:self.asteroids[index].alive {
+                    @@:return(false)
+                }
+                @@:self.asteroids[index].alive = false
+                let sz: Int = @@:self.asteroids[index].size
+                let p: Vec2 = @@:self.asteroids[index].pos
+                if sz > 1 {
+                    @@:self.spawn_child(p, sz - 1)
+                    @@:self.spawn_child(p, sz - 1)
+                }
+                @@:(true)
+            }
+
+            remove(index: Int) {
+                if index < 0 || index >= @@:self.asteroids.count {
+                    return
+                }
+                @@:self.asteroids[index].alive = false
+            }
+
+            clear() { @@:self.asteroids = [] }
+
+            advance(dt: Double, court_size: Vec2) {
+                var i: Int = 0
+                while i < @@:self.asteroids.count {
+                    if @@:self.asteroids[i].alive {
+                        @@:self.asteroids[i].pos = @@:self.asteroids[i].pos.add(@@:self.asteroids[i].vel.scale(dt))
+                        if @@:self.asteroids[i].pos.x < 0.0 { @@:self.asteroids[i].pos.x = @@:self.asteroids[i].pos.x + court_size.x }
+                        if @@:self.asteroids[i].pos.x > court_size.x { @@:self.asteroids[i].pos.x = @@:self.asteroids[i].pos.x - court_size.x }
+                        if @@:self.asteroids[i].pos.y < 0.0 { @@:self.asteroids[i].pos.y = @@:self.asteroids[i].pos.y + court_size.y }
+                        if @@:self.asteroids[i].pos.y > court_size.y { @@:self.asteroids[i].pos.y = @@:self.asteroids[i].pos.y - court_size.y }
+                    }
+                    i = i + 1
+                }
+            }
+
+            count(): Int { @@:(@@:self.asteroids.count) }
+
+            alive_count(): Int {
+                var c: Int = 0
+                var i: Int = 0
+                while i < @@:self.asteroids.count {
+                    if @@:self.asteroids[i].alive { c = c + 1 }
+                    i = i + 1
+                }
+                @@:(c)
+            }
+
+            is_alive(index: Int): Bool {
+                if index < 0 || index >= @@:self.asteroids.count {
+                    @@:return(false)
+                }
+                @@:(@@:self.asteroids[index].alive)
+            }
+
+            position(index: Int): Vec2 {
+                if index < 0 || index >= @@:self.asteroids.count {
+                    @@:return(Vec2(0.0, 0.0))
+                }
+                @@:(@@:self.asteroids[index].pos)
+            }
+
+            velocity(index: Int): Vec2 {
+                if index < 0 || index >= @@:self.asteroids.count {
+                    @@:return(Vec2(0.0, 0.0))
+                }
+                @@:(@@:self.asteroids[index].vel)
+            }
+
+            size_of(index: Int): Int {
+                if index < 0 || index >= @@:self.asteroids.count {
+                    @@:return(0)
+                }
+                @@:(@@:self.asteroids[index].size)
+            }
+
+            radius_of(index: Int): Double {
+                if index < 0 || index >= @@:self.asteroids.count {
+                    @@:return(0.0)
+                }
+                let sz: Int = @@:self.asteroids[index].size
+                if sz == 3 { @@:return(32.0) }
+                if sz == 2 { @@:return(18.0) }
+                @@:(10.0)
+            }
+        }
+
+    actions:
+
+        spawn_large(court_size: Vec2) {
+            let edge: Int = Int(rf() * 4)
+            var pos: Vec2 = Vec2(0.0, 0.0)
+            if edge == 0 {
+                pos = Vec2(0.0, rf() * court_size.y)
+            } else if edge == 1 {
+                pos = Vec2(court_size.x, rf() * court_size.y)
+            } else if edge == 2 {
+                pos = Vec2(rf() * court_size.x, 0.0)
+            } else {
+                pos = Vec2(rf() * court_size.x, court_size.y)
+            }
+            let angle: Double = rf() * 2.0 * Double.pi
+            let speed: Double = 40.0 + rf() * 30.0
+            let vel: Vec2 = Vec2.fromAngle(angle, speed)
+            @@:self.asteroids.append(Asteroid(pos, vel, 3, true))
+        }
+
+        spawn_child(pos: Vec2, size: Int) {
+            let angle: Double = rf() * 2.0 * Double.pi
+            let speed: Double = 60.0 + rf() * 40.0 + Double(3 - size) * 20.0
+            let vel: Vec2 = Vec2.fromAngle(angle, speed)
+            @@:self.asteroids.append(Asteroid(pos, vel, size, true))
+        }
+
+    domain:
+        asteroids: [Asteroid] = []
+}
+
+// ------------------------------------------------------------ AsteroidsGame
+@@[main]
+@@system AsteroidsGame(ship_host: IShipHost, difficulty: Int) {
+
+    operations:
+        get_current_state_name(): String { @@:(@@:system.state.name) }
+        get_bullets_in_flight(): Int { @@:(@@:self.bullets_in_flight) }
+        get_max_bullets(): Int       { @@:(@@:self.max_bullets) }
+
+    interface:
+        start()
+        restart()
+        pause()
+        resume()
+        tick(dt: Double, court_size: Vec2)
+        ship_hit_asteroid(index: Int)
+        bullet_hit_asteroid(index: Int)
+        ship_hyperspace()
+        bullet_fired()
+        bullet_expired()
+        get_score(): Int
+        get_lives(): Int
+        get_wave(): Int
+        get_difficulty(): Int
+        is_paused(): Bool
+
+    machine:
+
+        $Attract {
+            $>() {
+                @@:self.score = 0
+                @@:self.wave = 1
+                @@:self.bullets_in_flight = 0
+            }
+            start() {
+                @@:self.ship.respawn()
+                let n: Int = @@:self.asteroids_for_wave(1)
+                @@:self.field.spawn_wave(n, @@:self.last_court_size)
+                -> $Playing
+            }
+            get_score(): Int      { @@:(@@:self.score) }
+            get_lives(): Int      { @@:(@@:self.ship.get_lives()) }
+            get_wave(): Int       { @@:(@@:self.wave) }
+            get_difficulty(): Int { @@:(@@:self.difficulty) }
+            is_paused(): Bool     { @@:(false) }
+        }
+
+        $InGame {
+            pause() {
+                push$ -> $Paused
+            }
+            bullet_fired() {
+                @@:self.bullets_in_flight = @@:self.bullets_in_flight + 1
+            }
+            bullet_expired() {
+                if @@:self.bullets_in_flight > 0 {
+                    @@:self.bullets_in_flight = @@:self.bullets_in_flight - 1
+                }
+            }
+            get_score(): Int      { @@:(@@:self.score) }
+            get_lives(): Int      { @@:(@@:self.ship.get_lives()) }
+            get_wave(): Int       { @@:(@@:self.wave) }
+            get_difficulty(): Int { @@:(@@:self.difficulty) }
+            is_paused(): Bool     { @@:(false) }
+        }
+
+        $Playing => $InGame {
+            tick(dt: Double, court_size: Vec2) {
+                @@:self.last_court_size = court_size
+                @@:self.ship.tick(dt)
+                @@:self.field.advance(dt, court_size)
+            }
+            ship_hit_asteroid(index: Int) {
+                if !@@:self.ship.can_be_hit() {
+                    return
+                }
+                @@:self.ship.hit()
+                -> $ShipDying
+            }
+            bullet_hit_asteroid(index: Int) {
+                if @@:self.field.split(index) {
+                    let sz: Int = @@:self.size_points(index)
+                    @@:self.score = @@:self.score + sz * @@:self.difficulty
+                    if @@:self.field.alive_count() <= 0 {
+                        -> "all asteroids cleared" $WaveClear
+                    }
+                }
+            }
+            ship_hyperspace() {
+                @@:self.ship.hyperspace()
+            }
+            => $^
+        }
+
+        $ShipDying => $InGame {
+            tick(dt: Double, court_size: Vec2) {
+                @@:self.last_court_size = court_size
+                @@:self.ship.tick(dt)
+                @@:self.field.advance(dt, court_size)
+                if @@:self.ship.get_current_state_name() == "Respawning" {
+                    -> "ship respawning" $Playing
+                } else if @@:self.ship.get_current_state_name() == "Dead" {
+                    -> "no lives left" $GameOver
+                }
+            }
+            => $^
+        }
+
+        $WaveClear => $InGame {
+            $>() { @@:self.wave_timer = 0.0 }
+            tick(dt: Double, court_size: Vec2) {
+                @@:self.last_court_size = court_size
+                @@:self.ship.tick(dt)
+                @@:self.wave_timer = @@:self.wave_timer + dt
+                if @@:self.wave_timer >= @@:self.wave_pause {
+                    @@:self.wave = @@:self.wave + 1
+                    let n: Int = @@:self.asteroids_for_wave(@@:self.wave)
+                    @@:self.field.spawn_wave(n, court_size)
+                    -> "next wave" $Playing
+                }
+            }
+            => $^
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+            get_score(): Int      { @@:(@@:self.score) }
+            get_lives(): Int      { @@:(@@:self.ship.get_lives()) }
+            get_wave(): Int       { @@:(@@:self.wave) }
+            get_difficulty(): Int { @@:(@@:self.difficulty) }
+            is_paused(): Bool     { @@:(true) }
+        }
+
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+            get_score(): Int      { @@:(@@:self.score) }
+            get_lives(): Int      { @@:(@@:self.ship.get_lives()) }
+            get_wave(): Int       { @@:(@@:self.wave) }
+            get_difficulty(): Int { @@:(@@:self.difficulty) }
+            is_paused(): Bool     { @@:(false) }
+        }
+
+    actions:
+
+        asteroids_for_wave(wave: Int): Int {
+            let base_count: Int = 2 + @@:self.difficulty
+            return base_count + wave - 1
+        }
+
+        size_points(index: Int): Int {
+            let sz: Int = @@:self.field.size_of(index)
+            if sz == 3 { return 20 }
+            if sz == 2 { return 50 }
+            return 100
+        }
+
+    domain:
+        difficulty: Int = difficulty
+        score: Int = 0
+        wave: Int = 1
+        wave_timer: Double = 0.0
+        wave_pause: Double = 2.0
+        bullets_in_flight: Int = 0
+        max_bullets: Int = 4
+        last_court_size: Vec2 = Vec2(640.0, 480.0)
+        ship: Ship = @@Ship(ship_host)
+        field: AsteroidField = @@AsteroidField()
+}

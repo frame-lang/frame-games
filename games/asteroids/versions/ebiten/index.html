@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Asteroids — Ebitengine (Go)</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%;
+                 background: #000; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script src="wasm_exec.js"></script>
+  <script>
+    // Ebiten handles canvas sizing/letterbox (Layout 800x600). Swallow the
+    // default scroll for game keys so Arrows/Space don't scroll the parent.
+    var GAME = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'];
+    window.addEventListener('keydown', function (e) {
+      if (GAME.indexOf(e.code) !== -1) e.preventDefault();
+    }, false);
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch("asteroids.wasm"), go.importObject)
+      .then(function (r) { go.run(r.instance); });
+  </script>
+</body>
+</html>
