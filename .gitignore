@@ -86,3 +86,7 @@ build/spike-swift-web/
 build/spike-pacman-ts/
 build/spike-pacman-go/
 build/spike-pacman-c/
+build/spike-pacman-py/
+build/spike-pacman-rb/
+build/spike-pacman-php/
+build/spike-pacman-lua/
