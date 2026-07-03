@@ -93,3 +93,6 @@ build/spike-pacman-lua/
 build/spike-pacman-cs/
 build/spike-pacman-java/
 build/spike-pacman-rust/
+build/spike-pacman-kt/
+build/spike-pacman-swift/
+build/spike-pacman-dart/
