@@ -81,3 +81,8 @@ __pycache__/
 # shell.html, package.json); generated AsteroidsGame.swift, .build/, pkg/,
 # node_modules and the esbuild bundle are local only.
 build/spike-swift-web/
+# Pac-Man oracle spikes: source is force-added (.fts/.fgo/.fc + oracle drivers
+# + go.mod); generated FSMs, binaries and per-run traces are local only.
+build/spike-pacman-ts/
+build/spike-pacman-go/
+build/spike-pacman-c/
