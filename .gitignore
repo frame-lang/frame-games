@@ -90,3 +90,6 @@ build/spike-pacman-py/
 build/spike-pacman-rb/
 build/spike-pacman-php/
 build/spike-pacman-lua/
+build/spike-pacman-cs/
+build/spike-pacman-java/
+build/spike-pacman-rust/
