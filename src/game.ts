@@ -59,6 +59,18 @@ const STATE_ACCESSORS: Record<
       Ship: () => liveState(sub.ship),
     };
   },
+  pacman: (m) => {
+    // Ghosts are driver-populated (the scene add_ghost()s four instances after
+    // machine creation), so read the list lazily each tick. The Ghost card
+    // tracks Blinky (index 0) as the representative instance; the pen is the
+    // scheduler's own child system.
+    const sub = m as { ghosts?: unknown[]; pen?: unknown };
+    return {
+      GhostGame: () => liveState(m),
+      Ghost: () => (sub.ghosts && sub.ghosts.length > 0 ? liveState(sub.ghosts[0]) : null),
+      GhostPen: () => liveState(sub.pen),
+    };
+  },
 };
 
 const titleEl = document.getElementById("game-title")!;

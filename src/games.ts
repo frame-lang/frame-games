@@ -6,6 +6,8 @@
 // and add one entry here pointing at its def.
 import { asteroids } from "../games/asteroids/src";
 import asteroidsManifest from "../games/asteroids/game.json";
+import { pacman } from "../games/pacman/src";
+import pacmanManifest from "../games/pacman/game.json";
 import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
@@ -73,6 +75,10 @@ export const GAMES: Record<string, GameEntry> = {
   asteroids: {
     def: asteroids,
     manifest: asteroidsManifest as GameManifest,
+  },
+  pacman: {
+    def: pacman,
+    manifest: pacmanManifest as GameManifest,
   },
 };
 
