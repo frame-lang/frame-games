@@ -104,3 +104,6 @@ build/spike-shooter-c/
 build/spike-shooter-kt/
 build/spike-shooter-swift/
 build/spike-shooter-dart/
+build/spike-shooter-ts/
+build/spike-shooter-go/
+build/spike-shooter-php/
