@@ -110,3 +110,6 @@ build/spike-shooter-php/
 build/spike-shooter-py/
 build/spike-shooter-rb/
 build/spike-shooter-rust/
+build/spike-shooter-cpp/
+build/spike-shooter-gd/
+build/spike-shooter-lua/
