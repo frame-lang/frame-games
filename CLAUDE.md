@@ -48,4 +48,6 @@ surfacing and fixing transpiler defects.
 ## Port status & bug ledger
 Persistent state lives in this project's auto-memory (`MEMORY.md` + files). framec
 bugs filed here: #108/#110/#112/#115/#116/#117/#120/#122/#124 (fixed), #126 (not-a-bug),
-#141 (fixed+validated), #144 (php domain initializer — **PHP port blocked**).
+#141/#147/#156/#157 (fixed+validated), #144 (php domain initializer — **PHP port blocked**),
+#159 (indexed-dispatch family, fixed — birthed E616/E617), #161 (→E616),
+#164 (OPEN: C typedef-hidden element type silently emits invalid C; needs E617-style error).
