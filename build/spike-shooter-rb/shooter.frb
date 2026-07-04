@@ -1,0 +1,737 @@
+@@[target("ruby")]
+
+# Side-scrolling shooter (Ruby) — the capstone: everything composed at scale.
+#
+# CANONICAL: mirrors the Godot reference
+# (frame-arcade/ch07-shooter/frame/shooter.fgd) exactly — the same
+# four systems (Player / Enemy / Boss / Shooter), states, transitions,
+# the parameterized Enemy(kind, hp, fire_rate, points), the
+# three-phase Boss HSM ($PhaseOne/$PhaseTwo/$PhaseThree parents with
+# idle/fire child leaves, HP thresholds driving phase changes), the
+# owned sub-systems (player/boss + an enemies list), && the
+# push$/pop$ pause added to the orchestrator. Only action bodies
+# differ (JS host code); the Godot ": RefCounted" base is dropped.
+#
+# Boss start state is $P1Idle (lexically first) — preserved here so
+# the HSM enters $PhaseOne then the idle leaf, same as Godot.
+#
+# WHAT FRAME OWNS vs THE DRIVER: Frame owns every entity's MODE
+# (player alive/hit/invuln, enemy spawn/active/dying, boss phase +
+# attack pattern) && the wave/boss scheduling. The scene owns
+# positions, bulphysics, collision, && rendering — reading the
+# FSM's wants_to_fire*/should_spawn* signals && reporting hits back,
+# exactly like the Godot main.gd.
+
+@@system Player {
+
+    interface:
+        tick(dt)
+        hit()
+        respawn()
+        can_fire()
+        can_be_hit()
+        is_visible()
+        get_state()
+        get_lives()
+
+    machine:
+        $Alive {
+            hit() { -> $Exploding }
+
+            can_fire()    { @@:(true) }
+            can_be_hit()  { @@:(true) }
+            is_visible()  { @@:(true) }
+            get_state() { @@:("alive") }
+            get_lives()    { @@:(self.lives) }
+        }
+
+        $Exploding {
+            $.timer = 0.0
+            $.duration = 1.0
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration
+                    self.lives = self.lives - 1
+                    if self.lives <= 0
+                        -> $Dead
+                    else
+                        -> $Invulnerable
+                    end
+                end
+            }
+
+            can_fire()    { @@:(false) }
+            can_be_hit()  { @@:(false) }
+            is_visible()  { @@:(true) }
+            get_state() { @@:("exploding") }
+            get_lives()    { @@:(self.lives) }
+        }
+
+        $Invulnerable {
+            $.timer = 0.0
+            $.duration = 2.0
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration
+                    -> $Alive
+                end
+            }
+
+            can_fire()    { @@:(true) }
+            can_be_hit()  { @@:(false) }
+            is_visible()  { @@:(true) }
+            get_state() { @@:("invulnerable") }
+            get_lives()    { @@:(self.lives) }
+        }
+
+        $Dead {
+            respawn() {
+                self.lives = self.starting_lives
+                -> $Alive
+            }
+
+            can_fire()    { @@:(false) }
+            can_be_hit()  { @@:(false) }
+            is_visible()  { @@:(false) }
+            get_state() { @@:("dead") }
+            get_lives()    { @@:(0) }
+        }
+
+    domain:
+        lives = 3
+        starting_lives = 3
+}
+
+@@system Enemy(kind, hp, fire_rate, points) {
+
+    interface:
+        tick(dt)
+        hit(damage)
+        get_state()
+        get_kind()
+        get_hp()
+        get_points()
+        wants_to_fire()
+        consume_fire()
+        is_alive()
+        is_cleanup()
+
+    machine:
+        $Spawning {
+            $.timer = 0.0
+            $.duration = 0.5
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration
+                    -> $Active
+                end
+            }
+
+            hit(damage) {
+            }
+
+            get_state() { @@:("spawning") }
+            get_kind()     { @@:(self.ekind) }
+            get_hp()       { @@:(self.hp_remaining) }
+            get_points()   { @@:(self.pts) }
+            wants_to_fire() { @@:(false) }
+            consume_fire()      { }
+            is_alive()    { @@:(true) }
+            is_cleanup()  { @@:(false) }
+        }
+
+        $Active {
+            $.fire_timer = 0.0
+
+            tick(dt) {
+                if self.rate > 0.0
+                    $.fire_timer = $.fire_timer + dt
+                end
+            }
+
+            hit(damage) {
+                self.hp_remaining = self.hp_remaining - damage
+                if self.hp_remaining <= 0
+                    -> $Dying
+                end
+            }
+
+            get_state() { @@:("active") }
+            get_kind()     { @@:(self.ekind) }
+            get_hp()       { @@:(self.hp_remaining) }
+            get_points()   { @@:(self.pts) }
+            wants_to_fire() {
+                if self.rate <= 0.0
+                    @@:return(false)
+                end
+                @@:($.fire_timer >= self.rate)
+            }
+            consume_fire()      { $.fire_timer = 0.0 }
+            is_alive()    { @@:(true) }
+            is_cleanup()  { @@:(false) }
+        }
+
+        $Dying {
+            $.timer = 0.0
+            $.duration = 0.4
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration
+                    -> $Gone
+                end
+            }
+
+            hit(damage) {
+            }
+
+            get_state() { @@:("dying") }
+            get_kind()     { @@:(self.ekind) }
+            get_hp()       { @@:(0) }
+            get_points()   { @@:(self.pts) }
+            wants_to_fire() { @@:(false) }
+            consume_fire()      { }
+            is_alive()    { @@:(false) }
+            is_cleanup()  { @@:(false) }
+        }
+
+        $Gone {
+            get_state() { @@:("gone") }
+            get_kind()     { @@:(self.ekind) }
+            get_hp()       { @@:(0) }
+            get_points()   { @@:(self.pts) }
+            wants_to_fire() { @@:(false) }
+            consume_fire()      { }
+            is_alive()    { @@:(false) }
+            is_cleanup()  { @@:(true) }
+        }
+
+    domain:
+        ekind = kind
+        hp_remaining = hp
+        rate = fire_rate
+        pts = points
+}
+
+@@system Boss {
+
+    interface:
+        tick(dt)
+        hit(damage)
+        get_phase()
+        get_hp()
+        get_hp_fraction()
+        get_state()
+        is_alive()
+        is_dying()
+        is_gone()
+        wants_to_fire_single()
+        wants_to_fire_spread()
+        wants_to_fire_spray()
+        consume_fire()
+
+    machine:
+        $P1Idle => $PhaseOne {
+            $.timer = 0.0
+            $.idle_duration = 1.8
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration
+                    -> $P1Firing
+                end
+            }
+
+            get_state() { @@:("p1_idle") }
+            => $^
+        }
+
+        $PhaseOne {
+            hit(damage) {
+                self.hp = self.hp - damage
+                if self.hp <= self.hp_start * 0.66
+                    -> $P2Idle
+                elsif self.hp <= 0
+                    -> $Dying
+                end
+            }
+
+            get_phase()        { @@:(1) }
+            get_hp()           { @@:(self.hp) }
+            get_hp_fraction() { @@:(self.hp / self.hp_start) }
+            get_state()     { @@:("phase_one") }
+            is_alive()        { @@:(true) }
+            is_dying()        { @@:(false) }
+            is_gone()         { @@:(false) }
+            wants_to_fire_single()  { @@:(false) }
+            wants_to_fire_spread()  { @@:(false) }
+            wants_to_fire_spray()   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $P1Firing => $PhaseOne {
+            $.timer = 0.0
+            $.duration = 0.4
+            $.fired = false
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration
+                    -> $P1Idle
+                end
+            }
+
+            wants_to_fire_single() {
+                if $.fired
+                    @@:return(false)
+                end
+                @@:(true)
+            }
+            consume_fire() { $.fired = true }
+
+            get_state() { @@:("p1_firing") }
+            => $^
+        }
+
+        $PhaseTwo {
+            hit(damage) {
+                self.hp = self.hp - damage
+                if self.hp <= self.hp_start * 0.33
+                    -> $P3Idle
+                elsif self.hp <= 0
+                    -> $Dying
+                end
+            }
+
+            get_phase()        { @@:(2) }
+            get_hp()           { @@:(self.hp) }
+            get_hp_fraction() { @@:(self.hp / self.hp_start) }
+            get_state()     { @@:("phase_two") }
+            is_alive()        { @@:(true) }
+            is_dying()        { @@:(false) }
+            is_gone()         { @@:(false) }
+            wants_to_fire_single()  { @@:(false) }
+            wants_to_fire_spread()  { @@:(false) }
+            wants_to_fire_spray()   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $P2Idle => $PhaseTwo {
+            $.timer = 0.0
+            $.idle_duration = 1.3
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration
+                    -> $P2Spread
+                end
+            }
+
+            get_state() { @@:("p2_idle") }
+            => $^
+        }
+
+        $P2Spread => $PhaseTwo {
+            $.timer = 0.0
+            $.duration = 0.5
+            $.fired = false
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration
+                    -> $P2Idle
+                end
+            }
+
+            wants_to_fire_spread() {
+                if $.fired
+                    @@:return(false)
+                end
+                @@:(true)
+            }
+            consume_fire() { $.fired = true }
+
+            get_state() { @@:("p2_spread") }
+            => $^
+        }
+
+        $PhaseThree {
+            hit(damage) {
+                self.hp = self.hp - damage
+                if self.hp <= 0
+                    -> $Dying
+                end
+            }
+
+            get_phase()        { @@:(3) }
+            get_hp()           { @@:(self.hp) }
+            get_hp_fraction() { @@:(self.hp / self.hp_start) }
+            get_state()     { @@:("phase_three") }
+            is_alive()        { @@:(true) }
+            is_dying()        { @@:(false) }
+            is_gone()         { @@:(false) }
+            wants_to_fire_single()  { @@:(false) }
+            wants_to_fire_spread()  { @@:(false) }
+            wants_to_fire_spray()   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $P3Idle => $PhaseThree {
+            $.timer = 0.0
+            $.idle_duration = 0.6
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration
+                    -> $P3Spray
+                end
+            }
+
+            get_state() { @@:("p3_idle") }
+            => $^
+        }
+
+        $P3Spray => $PhaseThree {
+            $.timer = 0.0
+            $.duration = 0.8
+            $.fire_accumulator = 0.0
+            $.fire_ready = false
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                $.fire_accumulator = $.fire_accumulator + dt
+                if $.fire_accumulator >= 0.12
+                    $.fire_accumulator = 0.0
+                    $.fire_ready = true
+                end
+                if $.timer >= $.duration
+                    -> $P3Idle
+                end
+            }
+
+            wants_to_fire_spray() {
+                @@:($.fire_ready)
+            }
+            consume_fire() { $.fire_ready = false }
+
+            get_state() { @@:("p3_spray") }
+            => $^
+        }
+
+        $Dying {
+            $.timer = 0.0
+            $.duration = 2.5
+
+            tick(dt) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration
+                    -> $Gone
+                end
+            }
+
+            hit(damage) {
+            }
+
+            get_phase()        { @@:(0) }
+            get_hp()           { @@:(0) }
+            get_hp_fraction() { @@:(0.0) }
+            get_state()     { @@:("dying") }
+            is_alive()        { @@:(false) }
+            is_dying()        { @@:(true) }
+            is_gone()         { @@:(false) }
+            wants_to_fire_single()  { @@:(false) }
+            wants_to_fire_spread()  { @@:(false) }
+            wants_to_fire_spray()   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $Gone {
+            get_phase()        { @@:(0) }
+            get_hp()           { @@:(0) }
+            get_hp_fraction() { @@:(0.0) }
+            get_state()     { @@:("gone") }
+            is_alive()        { @@:(false) }
+            is_dying()        { @@:(false) }
+            is_gone()         { @@:(true) }
+            wants_to_fire_single()  { @@:(false) }
+            wants_to_fire_spread()  { @@:(false) }
+            wants_to_fire_spray()   { @@:(false) }
+            consume_fire()          { }
+        }
+
+    domain:
+        hp = 90
+        hp_start = 90
+}
+
+@@[main]
+@@system Shooter {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+
+    interface:
+        start()
+        restart()
+        tick(dt)
+
+        add_enemy(e)
+        clear_dead_enemies()
+
+        player_hit()
+        enemy_hit(index, damage)
+        boss_hit(damage)
+
+        get_state()
+        get_score()
+        get_lives()
+        enemy_count()
+        should_spawn_wave()
+        consume_wave()
+        should_spawn_boss()
+        consume_boss_spawn()
+
+        pause()
+        resume()
+
+    machine:
+        $Attract {
+            $>() {
+                self.score = 0
+                self.waves_spawned = 0
+                self.wave_timer = 0.0
+                self.boss_spawn_pending = false
+            }
+
+            start() {
+                self.player.respawn()
+                -> $Playing
+            }
+
+            get_state()         { @@:("attract") }
+            get_score()            { @@:(self.score) }
+            get_lives()            { @@:(self.player.get_lives()) }
+            enemy_count()          { @@:(self.enemies.length) }
+            should_spawn_wave()   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss()   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        $Playing {
+            tick(dt) {
+                self.player.tick(dt)
+                self._tick_enemies(dt)
+                self.wave_timer = self.wave_timer + dt
+
+                if self.player.get_state() == "dead"
+                    -> $GameOver
+
+                end
+                if self.waves_spawned >= self.waves_before_boss
+                    -> $BossFight
+                end
+            }
+
+            add_enemy(e) {
+                self.enemies.push(e)
+            }
+
+            clear_dead_enemies() {
+                self._cleanup_enemies()
+            }
+
+            player_hit() {
+                if self.player.can_be_hit()
+                    self.player.hit()
+                end
+            }
+
+            enemy_hit(index, damage) {
+                if index < 0 || index >= self.enemies.length
+                    @@:return(false)
+                end
+                e = self.enemies[index]
+                e.hit(damage)
+                if !e.is_alive()
+                    self.score = self.score + e.get_points()
+                    @@:return(true)
+                end
+                @@:(false)
+            }
+
+            boss_hit(damage) {
+                @@:(false)
+            }
+
+            should_spawn_wave() {
+                @@:(self.wave_timer >= self.wave_interval)
+            }
+
+            consume_wave() {
+                self.wave_timer = 0.0
+                self.waves_spawned = self.waves_spawned + 1
+            }
+
+            should_spawn_boss() { @@:(false) }
+            consume_boss_spawn()      { }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state() { @@:("playing") }
+            get_score()    { @@:(self.score) }
+            get_lives()    { @@:(self.player.get_lives()) }
+            enemy_count()  { @@:(self.enemies.length) }
+        }
+
+        $BossFight {
+            $>() {
+                self.boss_spawn_pending = true
+            }
+
+            tick(dt) {
+                self.player.tick(dt)
+                self._tick_enemies(dt)
+                self.boss.tick(dt)
+
+                if self.player.get_state() == "dead"
+                    -> $GameOver
+
+                end
+                if self.boss.is_gone()
+                    -> $Victory
+                end
+            }
+
+            add_enemy(e) {
+                self.enemies.push(e)
+            }
+
+            clear_dead_enemies() {
+                self._cleanup_enemies()
+            }
+
+            player_hit() {
+                if self.player.can_be_hit()
+                    self.player.hit()
+                end
+            }
+
+            enemy_hit(index, damage) {
+                if index < 0 || index >= self.enemies.length
+                    @@:return(false)
+                end
+                e = self.enemies[index]
+                e.hit(damage)
+                if !e.is_alive()
+                    self.score = self.score + e.get_points()
+                    @@:return(true)
+                end
+                @@:(false)
+            }
+
+            boss_hit(damage) {
+                self.boss.hit(damage)
+                if self.boss.is_dying() || self.boss.is_gone()
+                    @@:(true)
+                else
+                    @@:(false)
+                end
+            }
+
+            should_spawn_wave()   { @@:(false) }
+            consume_wave()              { }
+
+            should_spawn_boss()   { @@:(self.boss_spawn_pending) }
+            consume_boss_spawn()        { self.boss_spawn_pending = false }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state() { @@:("boss_fight") }
+            get_score()    { @@:(self.score) }
+            get_lives()    { @@:(self.player.get_lives()) }
+            enemy_count()  { @@:(self.enemies.length) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state()         { @@:("paused") }
+            get_score()            { @@:(self.score) }
+            get_lives()            { @@:(self.player.get_lives()) }
+            enemy_count()          { @@:(self.enemies.length) }
+            should_spawn_wave()   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss()   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        $Victory {
+            restart() {
+                -> $Attract
+            }
+
+            get_state()         { @@:("victory") }
+            get_score()            { @@:(self.score) }
+            get_lives()            { @@:(self.player.get_lives()) }
+            enemy_count()          { @@:(self.enemies.length) }
+            should_spawn_wave()   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss()   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+
+            get_state()         { @@:("game_over") }
+            get_score()            { @@:(self.score) }
+            get_lives()            { @@:(self.player.get_lives()) }
+            enemy_count()          { @@:(self.enemies.length) }
+            should_spawn_wave()   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss()   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+    actions:
+        _tick_enemies(dt) {
+            i = 0
+            while i < self.enemies.length
+                self.enemies[i].tick(dt)
+                i = i + 1
+            end
+        }
+
+        _cleanup_enemies() {
+            i = self.enemies.length - 1
+            while i >= 0
+                if self.enemies[i].is_cleanup()
+                    self.enemies.delete_at(i)
+                end
+                i = i - 1
+            end
+        }
+
+    domain:
+        score = 0
+        wave_timer = 0.0
+        wave_interval = 2.0
+        waves_spawned = 0
+        waves_before_boss = 10
+        boss_spawn_pending = false
+        player = @@Player()
+        boss = @@Boss()
+        enemies = []
+}
