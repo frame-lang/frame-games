@@ -59,6 +59,18 @@ const STATE_ACCESSORS: Record<
       Ship: () => liveState(sub.ship),
     };
   },
+  shooter: (m) => {
+    // player/boss are owned children; enemies are driver-populated with a
+    // spawn->die lifecycle, so the Enemy card tracks the FIRST live instance
+    // (lazily — the list churns during play).
+    const sub = m as { player?: unknown; boss?: unknown; enemies?: unknown[] };
+    return {
+      Shooter: () => liveState(m),
+      Player: () => liveState(sub.player),
+      Boss: () => liveState(sub.boss),
+      Enemy: () => (sub.enemies && sub.enemies.length > 0 ? liveState(sub.enemies[0]) : null),
+    };
+  },
   pacman: (m) => {
     // Ghosts are driver-populated (the scene add_ghost()s four instances after
     // machine creation), so read the list lazily each tick. The Ghost card

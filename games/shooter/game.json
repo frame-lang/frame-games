@@ -1,0 +1,41 @@
+{
+  "id": "shooter",
+  "title": "Shooter (capstone)",
+  "summary": "Everything composed at scale: a parameterized Enemy system whose instances are born and destroyed mid-game, a Boss whose three phases are HSM parents with idle/fire leaves, and an orchestrator running waves, the boss fight, and a push$/pop$ pause.",
+  "teaches": "Dynamic multi-instance lifecycle ($Spawning→$Active→$Dying→$Gone) · three-phase Boss HSM with HP-threshold transitions · 42 state-local variables under load",
+  "controls": "Arrows/WASD move · hold SPACE fire · P pause · SPACE start · R restart",
+  "mobileButtons": [
+    { "label": "◀", "key": "ArrowLeft",  "hold": true,  "position": "left" },
+    { "label": "▶", "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "▲", "key": "ArrowUp",    "hold": true,  "position": "right" },
+    { "label": "▼", "key": "ArrowDown",  "hold": true,  "position": "right" },
+    { "label": "FIRE", "key": "Space",   "hold": true,  "position": "bottom" },
+    { "label": "⏸", "key": "KeyP",       "hold": false, "position": "bottom" },
+    { "label": "↻", "key": "KeyR",       "hold": false, "position": "bottom" }
+  ],
+  "machines": [
+    {
+      "system": "Shooter",
+      "title": "Shooter — the orchestrator",
+      "blurb": "Attract → Playing (wave scheduling, enemy spawn signals) → BossFight → Victory / GameOver, with pause as a push$/pop$ interrupt from either combat state. Owns the player, the boss, and the driver-populated enemies list — the same composition pattern as Pac-Man's scheduler, at twice the scale."
+    },
+    {
+      "system": "Boss",
+      "title": "Boss — a three-phase HSM",
+      "blurb": "$PhaseOne / $PhaseTwo / $PhaseThree are HSM parents, each with idle/fire attack-pattern leaves; HP thresholds drive the phase transitions, and each phase's state-local timers reset on entry. The deepest hierarchy in the collection: game → phase → attack leaf."
+    },
+    {
+      "system": "Enemy",
+      "title": "Enemy — instances with a lifecycle",
+      "blurb": "@@Enemy(kind, hp, fire_rate, points) — spawned in waves, each instance runs $Spawning → $Active → $Dying → $Gone and is then discarded. Where Pac-Man's four ghosts live forever, Shooter churns compartment sets — the create/destroy path of the runtime, per language. The panel tracks the first live enemy."
+    },
+    {
+      "system": "Player",
+      "title": "Player — hit/invulnerability window",
+      "blurb": "Alive → Exploding → Invulnerable → back to Alive (or Dead) — the classic damage loop, with the invulnerability grace window as a timed state."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "Phaser · JS" }
+  ]
+}
