@@ -1,0 +1,40 @@
+000 created                        st=attract    score=   0 lives=3 n=0 e0=-        e1=-        boss=p1_idle     bhp=90 pl=alive        fire[e=0 s=0 d=0 y=0] waves=0
+001 start -> playing               st=playing    score=   0 lives=3 n=0 e0=-        e1=-        boss=p1_idle     bhp=90 pl=alive        fire[e=0 s=0 d=0 y=0] waves=0
+002 pump x129 (2.0s+: wave 1 spawns) st=playing    score=   0 lives=3 n=2 e0=spawning e1=spawning boss=p1_idle     bhp=90 pl=alive        fire[e=0 s=0 d=0 y=0] waves=1
+003 pump x32 (0.5s: spawning -> active) st=playing    score=   0 lives=3 n=2 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=0 s=0 d=0 y=0] waves=1
+004 e0 hit 1/2 (still active)      st=playing    score=   0 lives=3 n=2 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=0 s=0 d=0 y=0] waves=1
+005 e0 hit 2/2 -> dying, +100      st=playing    score= 100 lives=3 n=2 e0=dying    e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=0 s=0 d=0 y=0] waves=1
+006 pump x26 (0.4s: e0 gone + CLEANED UP) st=playing    score= 100 lives=3 n=1 e0=active   e1=-        boss=p1_idle     bhp=90 pl=alive        fire[e=0 s=0 d=0 y=0] waves=1
+007 pump x23 (e1 fire #1 (rate 0.75)) st=playing    score= 100 lives=3 n=1 e0=active   e1=-        boss=p1_idle     bhp=90 pl=alive        fire[e=1 s=0 d=0 y=0] waves=1
+008 pump x48 (e1 fire #2)          st=playing    score= 100 lives=3 n=3 e0=active   e1=spawning boss=p1_idle     bhp=90 pl=alive        fire[e=2 s=0 d=0 y=0] waves=2
+009 player hit -> exploding        st=playing    score= 100 lives=3 n=3 e0=active   e1=spawning boss=p1_idle     bhp=90 pl=exploding    fire[e=2 s=0 d=0 y=0] waves=2
+010 player hit while exploding (no-op) st=playing    score= 100 lives=3 n=3 e0=active   e1=spawning boss=p1_idle     bhp=90 pl=exploding    fire[e=2 s=0 d=0 y=0] waves=2
+011 pump x64 (1.0s: lives-1 -> invulnerable) st=playing    score= 100 lives=2 n=3 e0=active   e1=active   boss=p1_idle     bhp=90 pl=invulnerable fire[e=3 s=0 d=0 y=0] waves=2
+012 player hit while invuln (no-op) st=playing    score= 100 lives=2 n=3 e0=active   e1=active   boss=p1_idle     bhp=90 pl=invulnerable fire[e=3 s=0 d=0 y=0] waves=2
+013 pause during PLAYING (push)    st=paused     score= 100 lives=2 n=3 e0=active   e1=active   boss=p1_idle     bhp=90 pl=invulnerable fire[e=3 s=0 d=0 y=0] waves=2
+014 pump x64 (1.0s paused: everything frozen) st=paused     score= 100 lives=2 n=3 e0=active   e1=active   boss=p1_idle     bhp=90 pl=invulnerable fire[e=3 s=0 d=0 y=0] waves=2
+015 resume (pop -> playing)        st=playing    score= 100 lives=2 n=3 e0=active   e1=active   boss=p1_idle     bhp=90 pl=invulnerable fire[e=3 s=0 d=0 y=0] waves=2
+016 pump x128 (2.0s: invuln over + wave 2) st=playing    score= 100 lives=2 n=5 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=6 s=0 d=0 y=0] waves=3
+017 kill the old shooter e0 (+150) st=playing    score= 250 lives=2 n=5 e0=dying    e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=6 s=0 d=0 y=0] waves=3
+018 pump x600 (rush: waves 3..6 spawn+decay) st=playing    score= 250 lives=2 n=14 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=6 s=0 d=0 y=0] waves=8
+019 pump x600 (rush: waves 7..10 -> BOSS mid-pump) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=6 s=2 d=0 y=0] waves=10
+020 boss_fight (entered during rush) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=6 s=2 d=0 y=0] waves=10
+021 pump x116 (boss p1: idle(1.8s) -> firing) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=6 s=3 d=0 y=0] waves=10
+022 pump x26 (p1 firing 0.4s -> idle (1 shot)) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p1_idle     bhp=90 pl=alive        fire[e=6 s=3 d=0 y=0] waves=10
+023 boss 90->60 (>59.4: still P1)  st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p1_idle     bhp=60 pl=alive        fire[e=6 s=3 d=0 y=0] waves=10
+024 boss 60->50 <=59.4 -> PHASE 2  st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p2_idle     bhp=50 pl=alive        fire[e=6 s=3 d=0 y=0] waves=10
+025 pause during BOSS FIGHT (push) st=paused     score= 250 lives=2 n=18 e0=active   e1=active   boss=p2_idle     bhp=50 pl=alive        fire[e=6 s=3 d=0 y=0] waves=10
+026 pump x64 (1.0s paused: boss frozen) st=paused     score= 250 lives=2 n=18 e0=active   e1=active   boss=p2_idle     bhp=50 pl=alive        fire[e=6 s=3 d=0 y=0] waves=10
+027 resume (pop -> boss_fight)     st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p2_idle     bhp=50 pl=alive        fire[e=6 s=3 d=0 y=0] waves=10
+028 pump x84 (p2: idle(1.3s) -> spread) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p2_spread   bhp=50 pl=alive        fire[e=6 s=3 d=1 y=0] waves=10
+029 pump x33 (p2 spread 0.5s -> idle (1 shot)) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p2_idle     bhp=50 pl=alive        fire[e=6 s=3 d=1 y=0] waves=10
+030 boss 50->29 <=29.7 -> PHASE 3  st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p3_idle     bhp=29 pl=alive        fire[e=6 s=3 d=1 y=0] waves=10
+031 pump x39 (p3: idle(0.6s) -> spray) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p3_spray    bhp=29 pl=alive        fire[e=6 s=3 d=1 y=0] waves=10
+032 pump x52 (p3 spray 0.8s (~6 shots @0.12s)) st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=p3_idle     bhp=29 pl=alive        fire[e=6 s=3 d=1 y=6] waves=10
+033 boss 29->0 in P3 -> DYING      st=boss_fight score= 250 lives=2 n=18 e0=active   e1=active   boss=dying       bhp= 0 pl=alive        fire[e=6 s=3 d=1 y=6] waves=10
+034 pump x200 (boss dying -> gone -> VICTORY) st=victory    score= 250 lives=2 n=18 e0=active   e1=active   boss=gone        bhp= 0 pl=alive        fire[e=6 s=3 d=1 y=6] waves=10
+035 final                          st=victory    score= 250 lives=2 n=18 e0=active   e1=active   boss=gone        bhp= 0 pl=alive        fire[e=6 s=3 d=1 y=6] waves=10
+Q00 quirk: state=boss_fight boss=p1_idle
+Q01 quirk: one 90-dmg hit in P1 -> boss=p2_idle hp=0 (phase two, not dying)
+Q02 quirk: 1-dmg hit in P2 at 0hp -> boss=p3_idle hp=-1 (phase three)
+Q03 quirk: 1-dmg hit in P3 -> boss=dying (finally dying)
