@@ -14,7 +14,7 @@ if ! command -v framec >/dev/null 2>&1; then
   exit 1
 fi
 
-GAMES=(asteroids pacman shooter)
+GAMES=(asteroids pacman shooter stealth)
 
 for game in "${GAMES[@]}"; do
   dir="games/$game/src"

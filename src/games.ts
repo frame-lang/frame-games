@@ -10,6 +10,8 @@ import { pacman } from "../games/pacman/src";
 import pacmanManifest from "../games/pacman/game.json";
 import { shooter } from "../games/shooter/src";
 import shooterManifest from "../games/shooter/game.json";
+import { stealth } from "../games/stealth/src";
+import stealthManifest from "../games/stealth/game.json";
 import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
@@ -85,6 +87,10 @@ export const GAMES: Record<string, GameEntry> = {
   shooter: {
     def: shooter,
     manifest: shooterManifest as GameManifest,
+  },
+  stealth: {
+    def: stealth,
+    manifest: stealthManifest as GameManifest,
   },
 };
 

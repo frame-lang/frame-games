@@ -1,0 +1,31 @@
+{
+  "id": "stealth",
+  "title": "Stealth (Guard AI)",
+  "summary": "Guard agent AI as a state machine instead of a behavior tree: three Guard instances patrol a maze, share a spot_player response through the $Aware HSM parent, and use push$/pop$ to investigate a sound and then resume exactly what they were doing.",
+  "teaches": "HSM parent sharing responses across four sibling states · push$/pop$ as an interruptible subroutine · three composed instances of one agent system",
+  "controls": "Arrows/WASD move · reach the green exit unseen · P pause · SPACE start · R restart",
+  "mobileButtons": [
+    { "label": "◀", "key": "ArrowLeft",  "hold": true,  "position": "left" },
+    { "label": "▶", "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "▲", "key": "ArrowUp",    "hold": true,  "position": "right" },
+    { "label": "▼", "key": "ArrowDown",  "hold": true,  "position": "right" },
+    { "label": "GO", "key": "Space",     "hold": false, "position": "bottom" },
+    { "label": "⏸", "key": "KeyP",       "hold": false, "position": "bottom" },
+    { "label": "↻", "key": "KeyR",       "hold": false, "position": "bottom" }
+  ],
+  "machines": [
+    {
+      "system": "Stealth",
+      "title": "Stealth — the game flow",
+      "blurb": "$Attract → $Playing → $Caught / $Escaped, with pause as a push$/pop$ interrupt. Owns the three Guard instances and fans every tick out to them; the scene reports perceptions (sightings, touches) back in."
+    },
+    {
+      "system": "Guard",
+      "title": "Guard — one agent's mind",
+      "blurb": "The AI core: $Patrolling / $Investigating / $Alerted / $Searching are all children of $Aware, which owns the shared spot_player response — see the player from ANY of the four and you get the same escalation. hear_sound is a push$ interrupt: investigate for a while, then pop$ back to exactly the interrupted patrol compartment. The card tracks guard 1."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "Phaser · JS" }
+  ]
+}

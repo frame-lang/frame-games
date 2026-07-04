@@ -71,6 +71,15 @@ const STATE_ACCESSORS: Record<
       Enemy: () => (sub.enemies && sub.enemies.length > 0 ? liveState(sub.enemies[0]) : null),
     };
   },
+  stealth: (m) => {
+    // guard1/guard2/guard3 are owned children; the Guard card tracks guard1
+    // as the representative instance (all three run the same system).
+    const sub = m as { guard1?: unknown };
+    return {
+      Stealth: () => liveState(m),
+      Guard: () => liveState(sub.guard1),
+    };
+  },
   pacman: (m) => {
     // Ghosts are driver-populated (the scene add_ghost()s four instances after
     // machine creation), so read the list lazily each tick. The Ghost card
