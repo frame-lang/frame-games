@@ -6,6 +6,8 @@
 // and add one entry here pointing at its def.
 import { asteroids } from "../games/asteroids/src";
 import asteroidsManifest from "../games/asteroids/game.json";
+import { pacman } from "../games/pacman/src";
+import pacmanManifest from "../games/pacman/game.json";
 import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
@@ -20,6 +22,12 @@ export interface VersionMeta {
   /** Public path to the version's playable when it's an external bundle (a
    * Godot WASM export). Versions with no `entry` are the in-page JS runtime. */
   entry?: string;
+  /** Public path to a build-only artifact used to confirm the bundle actually
+   * exists (Vite's SPA fallback serves index.html for any path, so probing the
+   * entry itself can lie). Defaults to the entry's sibling `index.pck` (Godot).
+   * Non-Godot bundles (e.g. Flame) set this to their own marker, like
+   * `.../flutter_bootstrap.js`. */
+  probe?: string;
   /** Set false for a version that's planned/wired but whose bundle isn't built
    * yet — kept in the manifest for the record, hidden from the drop-down until
    * its export is verified. Defaults to available (true). */
@@ -67,6 +75,10 @@ export const GAMES: Record<string, GameEntry> = {
   asteroids: {
     def: asteroids,
     manifest: asteroidsManifest as GameManifest,
+  },
+  pacman: {
+    def: pacman,
+    manifest: pacmanManifest as GameManifest,
   },
 };
 

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Asteroids — LÖVE (Lua)</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%;
+                 background: #000; overflow: hidden; }
+    /* Fixed 800x600 framebuffer; object-fit scales it to the iframe, 4:3,
+       black letterbox bars. (No window-resize of the canvas.) */
+    canvas#canvas { display: block; width: 100%; height: 100%;
+                    object-fit: contain; background: #000; outline: none; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="800" height="600" tabindex="-1"
+          oncontextmenu="event.preventDefault()"></canvas>
+  <script type="text/javascript">
+    // Swallow the default scroll for game keys so Arrows/Space don't scroll
+    // the parent page out of this iframe.
+    var GAME_KEYS = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'];
+    window.addEventListener('keydown', function (e) {
+      if (GAME_KEYS.indexOf(e.code) !== -1) e.preventDefault();
+    }, false);
+    window.addEventListener('load', function () {
+      document.getElementById('canvas').focus();
+    });
+    var Module = {
+      arguments: ["./"],
+      INITIAL_MEMORY: 16777216,
+      printErr: function () {},
+      canvas: document.getElementById('canvas'),
+    };
+    var applicationLoad = function () { Love(Module); };
+  </script>
+  <script type="text/javascript" src="game.js"></script>
+  <script async type="text/javascript" src="love.js" onload="applicationLoad(this)"></script>
+</body>
+</html>

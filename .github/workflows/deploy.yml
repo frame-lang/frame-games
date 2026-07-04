@@ -38,6 +38,15 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # ----- Flutter (for the Dart/Flame port) -----
+      # Pinned to the version the bundle was authored with so CI rebuilds match.
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.2"
+          channel: stable
+          cache: true
+
       # ----- framec (Rust binary that compiles .fjs / .fgd) -----
       # The cargo registry + the installed framec binary are cached together
       # so we only pay the ~3 min cargo build the first time, or when the
@@ -111,6 +120,13 @@ jobs:
         env:
           GODOT: /opt/godot/godot
         run: bash build/godot.sh all
+
+      # The Dart/Flame port is CI-buildable (no proprietary toolchain): framec
+      # regenerates the FSM, `flutter build web` produces the self-hosted bundle.
+      - name: Build Flame (Dart) web bundle
+        run: |
+          flutter config --enable-web
+          npm run build:flame
 
       - name: Vite build
         # Custom domain (games.frame-lang.org) serves at the root, so override

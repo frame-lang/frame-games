@@ -1,0 +1,463 @@
+@@[target("lua")]
+
+-- Pac-Man ghost AI — Lua port of the canonical controller
+-- (games/pacman/src/pacman.fjs). Same three systems (Ghost / GhostPen /
+-- GhostGame), states, the $OutOfPen HSM parent, the push$/pop$ frightened
+-- subroutine, the parameterized Ghost(name, home_corner, target_kind), the
+-- $Frightened enter/exit broadcast, and the driver-populated ghosts list.
+-- Lua shapes: brace bodies (framec translates to if/then/end), 1-based tables
+-- (the 0-based oracle indices are shifted with +1 at the boundary), typed
+-- child fields (pen: GhostPen) and a typed system array (ghosts: Ghost[] —
+-- framec E617: the annotation drives colon-dispatch lowering for indexed
+-- cross-system calls).
+
+-- ------------------------------------------------------------ Ghost
+@@system Ghost(name: string, home_corner, target_kind: number) {
+
+    interface:
+        tick(dt: number)
+        power_pellet_eaten()
+        frighten_expired()
+        eaten()
+        arrived_at_pen()
+        released()
+        phase_changed_to_chase()
+        phase_changed_to_scatter()
+        reset_to_pen()
+        get_state(): string
+        get_name(): string
+        get_home_corner()
+        get_target_kind(): number
+        is_frightened(): boolean
+        is_dangerous(): boolean
+        is_edible(): boolean
+
+    machine:
+        $InPen {
+            released() { -> $Scatter }
+            reset_to_pen() { }
+
+            get_state(): string        { @@:("in_pen") }
+            get_name(): string         { @@:(@@:self.gname) }
+            get_home_corner()          { @@:(@@:self.home) }
+            get_target_kind(): number  { @@:(@@:self.tkind) }
+            is_frightened(): boolean   { @@:(false) }
+            is_dangerous(): boolean    { @@:(false) }
+            is_edible(): boolean       { @@:(false) }
+        }
+
+        $OutOfPen {
+            power_pellet_eaten() {
+                push$
+                -> $Frightened
+            }
+
+            reset_to_pen() { -> $InPen }
+
+            get_state(): string        { @@:("out_of_pen") }
+            get_name(): string         { @@:(@@:self.gname) }
+            get_home_corner()          { @@:(@@:self.home) }
+            get_target_kind(): number  { @@:(@@:self.tkind) }
+            is_frightened(): boolean   { @@:(false) }
+            is_dangerous(): boolean    { @@:(true) }
+            is_edible(): boolean       { @@:(false) }
+        }
+
+        $Chase => $OutOfPen {
+            phase_changed_to_scatter() { -> $Scatter }
+            get_state(): string { @@:("chase") }
+            => $^
+        }
+
+        $Scatter => $OutOfPen {
+            phase_changed_to_chase() { -> $Chase }
+            get_state(): string { @@:("scatter") }
+            => $^
+        }
+
+        $Frightened {
+            frighten_expired() { -> pop$ }
+            eaten() { -> $Eaten }
+            reset_to_pen() { -> $InPen }
+
+            get_state(): string        { @@:("frightened") }
+            get_name(): string         { @@:(@@:self.gname) }
+            get_home_corner()          { @@:(@@:self.home) }
+            get_target_kind(): number  { @@:(@@:self.tkind) }
+            is_frightened(): boolean   { @@:(true) }
+            is_dangerous(): boolean    { @@:(false) }
+            is_edible(): boolean       { @@:(true) }
+        }
+
+        $Eaten {
+            arrived_at_pen() { -> $InPen }
+
+            get_state(): string        { @@:("eaten") }
+            get_name(): string         { @@:(@@:self.gname) }
+            get_home_corner()          { @@:(@@:self.home) }
+            get_target_kind(): number  { @@:(@@:self.tkind) }
+            is_frightened(): boolean   { @@:(false) }
+            is_dangerous(): boolean    { @@:(false) }
+            is_edible(): boolean       { @@:(false) }
+        }
+
+    domain:
+        gname: string = name
+        home = home_corner
+        tkind: number = target_kind
+}
+
+-- ------------------------------------------------------------ GhostPen
+@@system GhostPen {
+
+    interface:
+        tick(dt: number)
+        reset()
+        next_release_index(): number
+        should_release(): boolean
+        consume_release()
+
+    machine:
+        $Active {
+            tick(dt: number) {
+                @@:self.release_timer = @@:self.release_timer + dt
+            }
+
+            reset() {
+                @@:self.release_timer = 0.0
+                @@:self.next_index = 0
+            }
+
+            next_release_index(): number { @@:(@@:self.next_index) }
+
+            should_release(): boolean {
+                @@:(@@:self.release_timer >= @@:self.release_interval and @@:self.next_index < @@:self.max_ghosts)
+            }
+
+            consume_release() {
+                @@:self.next_index = @@:self.next_index + 1
+                @@:self.release_timer = 0.0
+            }
+        }
+
+    domain:
+        release_timer: number = 0.0
+        release_interval: number = 2.0
+        next_index: number = 0
+        max_ghosts: number = 4
+}
+
+-- ------------------------------------------------------------ GhostGame
+@@[main]
+@@system GhostGame {
+
+    operations:
+        get_current_state_name(): string { @@:(@@:system.state.name) }
+
+    interface:
+        tick(dt: number)
+        start()
+        add_ghost(g)
+        power_pellet_picked_up()
+        ghost_caught(index: number)
+        ghost_arrived_at_pen(index: number)
+        get_phase(): string
+        is_frightened(): boolean
+        ghost_count(): number
+        ghost_state(index: number): string
+        ghost_is_dangerous(index: number): boolean
+        ghost_is_edible(index: number): boolean
+        ghost_home_corner(index: number)
+        ghost_target_kind(index: number): number
+        get_score(): number
+        frighten_seconds_left(): number
+
+    machine:
+        $Idle {
+            add_ghost(g) {
+                table.insert(@@:self.ghosts, g)
+            }
+
+            start() {
+                @@:self.phase_timer = 0.0
+                @@:self.phase_index = 0
+                @@:self.score = 0
+                @@:self.pen.reset()
+                -> $Scatter
+            }
+
+            get_phase(): string                      { @@:("idle") }
+            is_frightened(): boolean                 { @@:(false) }
+            ghost_count(): number                    { @@:(#@@:self.ghosts) }
+            ghost_state(index: number): string       { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: number): boolean { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: number): boolean  { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: number)         { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: number): number { @@:(@@:self._q_tkind(index)) }
+            get_score(): number                      { @@:(@@:self.score) }
+            frighten_seconds_left(): number          { @@:(0.0) }
+        }
+
+        $Scatter {
+            $>() {
+                @@:self.phase_timer = 0.0
+                @@:self._broadcast_scatter()
+                @@:self._try_release()
+            }
+
+            tick(dt: number) {
+                @@:self.phase_timer = @@:self.phase_timer + dt
+                @@:self._tick_all(dt)
+                @@:self._try_release()
+                if @@:self.phase_timer >= @@:self._scatter_duration() {
+                    -> $Chase
+                }
+            }
+
+            power_pellet_picked_up() {
+                push$
+                -> $Frightened
+            }
+
+            ghost_caught(index: number) { }
+
+            ghost_arrived_at_pen(index: number) {
+                @@:self._deliver_arrived(index)
+            }
+
+            add_ghost(g) {
+                table.insert(@@:self.ghosts, g)
+            }
+
+            get_phase(): string                      { @@:("scatter") }
+            is_frightened(): boolean                 { @@:(false) }
+            ghost_count(): number                    { @@:(#@@:self.ghosts) }
+            ghost_state(index: number): string       { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: number): boolean { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: number): boolean  { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: number)         { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: number): number { @@:(@@:self._q_tkind(index)) }
+            get_score(): number                      { @@:(@@:self.score) }
+            frighten_seconds_left(): number          { @@:(0.0) }
+        }
+
+        $Chase {
+            $>() {
+                @@:self.phase_timer = 0.0
+                @@:self._broadcast_chase()
+                @@:self._try_release()
+            }
+
+            tick(dt: number) {
+                @@:self.phase_timer = @@:self.phase_timer + dt
+                @@:self._tick_all(dt)
+                @@:self._try_release()
+                if @@:self.phase_timer >= @@:self._chase_duration() {
+                    @@:self.phase_index = @@:self.phase_index + 1
+                    -> $Scatter
+                }
+            }
+
+            power_pellet_picked_up() {
+                push$
+                -> $Frightened
+            }
+
+            ghost_caught(index: number) { }
+
+            ghost_arrived_at_pen(index: number) {
+                @@:self._deliver_arrived(index)
+            }
+
+            add_ghost(g) {
+                table.insert(@@:self.ghosts, g)
+            }
+
+            get_phase(): string                      { @@:("chase") }
+            is_frightened(): boolean                 { @@:(false) }
+            ghost_count(): number                    { @@:(#@@:self.ghosts) }
+            ghost_state(index: number): string       { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: number): boolean { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: number): boolean  { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: number)         { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: number): number { @@:(@@:self._q_tkind(index)) }
+            get_score(): number                      { @@:(@@:self.score) }
+            frighten_seconds_left(): number          { @@:(0.0) }
+        }
+
+        $Frightened {
+            $>() {
+                @@:self.frighten_timer = 0.0
+                @@:self._broadcast_frighten()
+            }
+
+            <$() {
+                @@:self._broadcast_frighten_expired()
+            }
+
+            tick(dt: number) {
+                @@:self.frighten_timer = @@:self.frighten_timer + dt
+                @@:self._tick_all(dt)
+                @@:self._try_release()
+                if @@:self.frighten_timer >= @@:self.frighten_duration {
+                    -> pop$
+                }
+            }
+
+            power_pellet_picked_up() {
+                -> $Frightened
+            }
+
+            ghost_caught(index: number) {
+                if index < 0 or index >= #@@:self.ghosts {
+                    return
+                }
+                if @@:self.ghosts[index + 1].is_edible() {
+                    @@:self.ghosts[index + 1].eaten()
+                    @@:self.score = @@:self.score + @@:self.points_per_ghost
+                }
+            }
+
+            ghost_arrived_at_pen(index: number) {
+                @@:self._deliver_arrived(index)
+            }
+
+            add_ghost(g) {
+                table.insert(@@:self.ghosts, g)
+            }
+
+            get_phase(): string                      { @@:("frightened") }
+            is_frightened(): boolean                 { @@:(true) }
+            ghost_count(): number                    { @@:(#@@:self.ghosts) }
+            ghost_state(index: number): string       { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: number): boolean { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: number): boolean  { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: number)         { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: number): number { @@:(@@:self._q_tkind(index)) }
+            get_score(): number                      { @@:(@@:self.score) }
+            frighten_seconds_left(): number {
+                local rem = @@:self.frighten_duration - @@:self.frighten_timer
+                if rem < 0.0 {
+                    @@:return(0.0)
+                }
+                @@:(rem)
+            }
+        }
+
+    actions:
+        _scatter_duration(): number {
+            if @@:self.phase_index == 0 {
+                return 7.0
+            }
+            if @@:self.phase_index == 1 {
+                return 5.0
+            }
+            return 5.0
+        }
+
+        _chase_duration(): number {
+            if @@:self.phase_index >= 3 {
+                return 9999.0
+            }
+            return 20.0
+        }
+
+        _broadcast_scatter() {
+            local i = 1
+            while i <= #@@:self.ghosts {
+                @@:self.ghosts[i].phase_changed_to_scatter()
+                i = i + 1
+            }
+        }
+
+        _broadcast_chase() {
+            local i = 1
+            while i <= #@@:self.ghosts {
+                @@:self.ghosts[i].phase_changed_to_chase()
+                i = i + 1
+            }
+        }
+
+        _broadcast_frighten() {
+            local i = 1
+            while i <= #@@:self.ghosts {
+                @@:self.ghosts[i].power_pellet_eaten()
+                i = i + 1
+            }
+        }
+
+        _broadcast_frighten_expired() {
+            local i = 1
+            while i <= #@@:self.ghosts {
+                @@:self.ghosts[i].frighten_expired()
+                i = i + 1
+            }
+        }
+
+        _tick_all(dt: number) {
+            local i = 1
+            while i <= #@@:self.ghosts {
+                @@:self.ghosts[i].tick(dt)
+                i = i + 1
+            }
+            @@:self.pen.tick(dt)
+        }
+
+        _try_release() {
+            if @@:self.pen.should_release() {
+                local idx = @@:self.pen.next_release_index()
+                if idx >= 0 and idx < #@@:self.ghosts {
+                    @@:self.ghosts[idx + 1].released()
+                    @@:self.pen.consume_release()
+                }
+            }
+        }
+
+        _deliver_arrived(index: number) {
+            if index < 0 or index >= #@@:self.ghosts {
+                return
+            }
+            @@:self.ghosts[index + 1].arrived_at_pen()
+        }
+
+        _q_state(index: number): string {
+            if index < 0 or index >= #@@:self.ghosts {
+                return ""
+            }
+            return @@:self.ghosts[index + 1].get_state()
+        }
+        _q_dangerous(index: number): boolean {
+            if index < 0 or index >= #@@:self.ghosts {
+                return false
+            }
+            return @@:self.ghosts[index + 1].is_dangerous()
+        }
+        _q_edible(index: number): boolean {
+            if index < 0 or index >= #@@:self.ghosts {
+                return false
+            }
+            return @@:self.ghosts[index + 1].is_edible()
+        }
+        _q_home(index: number) {
+            if index < 0 or index >= #@@:self.ghosts {
+                return {x = 0.0, y = 0.0}
+            }
+            return @@:self.ghosts[index + 1].get_home_corner()
+        }
+        _q_tkind(index: number): number {
+            if index < 0 or index >= #@@:self.ghosts {
+                return 0
+            }
+            return @@:self.ghosts[index + 1].get_target_kind()
+        }
+
+    domain:
+        score: number = 0
+        phase_timer: number = 0.0
+        phase_index: number = 0
+        frighten_timer: number = 0.0
+        frighten_duration: number = 6.0
+        points_per_ghost: number = 200
+        ghosts: Ghost[] = {}
+        pen: GhostPen = @@GhostPen()
+}

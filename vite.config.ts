@@ -51,15 +51,25 @@ export default defineConfig(({ command }) => ({
         server.middlewares.use((req, res, next) => {
           if (!req.url) return next();
           const url = req.url.split("?")[0];
-          if (
-            /^\/games\/[^/]+\/versions\/[^/]+\//.test(url) &&
-            url.endsWith(".html")
-          ) {
+          const isBundle = /^\/games\/[^/]+\/versions\/[^/]+\//.test(url);
+          const isHtml = url.endsWith(".html");
+          // Flutter (Flame) bundles ship an ESM-flavoured flutter_bootstrap.js
+          // loaded as a classic <script>; Vite's dev transform would inject an
+          // `import` and break it ("Cannot use import statement outside a
+          // module"). Stream every bundle .js/.mjs verbatim too — Godot's
+          // classic IIFE loaders are unaffected (already served untransformed).
+          const isJs = url.endsWith(".js") || url.endsWith(".mjs");
+          if (isBundle && (isHtml || isJs)) {
             const filePath = join(__dirname, url);
             if (existsSync(filePath)) {
-              res.setHeader("Content-Type", "text/html");
-              res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-              res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+              res.setHeader(
+                "Content-Type",
+                isHtml ? "text/html" : "text/javascript",
+              );
+              if (isHtml) {
+                res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+                res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+              }
               createReadStream(filePath).pipe(res);
               return;
             }

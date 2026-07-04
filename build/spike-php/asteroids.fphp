@@ -1,0 +1,498 @@
+@@[target("php")]
+
+// Asteroids — PHP port of the Frame controller. Same three systems as every
+// other port. Per the Frame model (frame_language.md, "Syntax Taxonomy"):
+// a handler line is NATIVE target code; Frame only splices in references/calls.
+// So bodies are native PHP — `$this->field` domain access, `$this->child->m()`
+// child-system calls, `$local` vars, `if (cond) {`, `;` terminators — with the
+// closed Frame set spliced in: `$.stateVar`, `@@:(e)` / `@@:return(e)` (return
+// slot), `->`/`push$`/`pop$`/`=> $^` (transitions), `@@:system.state.name`.
+// (There are no reentrant `@@:self.method()` self-calls in this FSM.)
+// PHP has no operator overloading, so Vec2 uses methods (like TS/Go).
+
+class Vec2 {
+    public $x;
+    public $y;
+    public function __construct($x = 0.0, $y = 0.0) {
+        $this->x = $x;
+        $this->y = $y;
+    }
+    public function add($o) { return new Vec2($this->x + $o->x, $this->y + $o->y); }
+    public function scale($s) { return new Vec2($this->x * $s, $this->y * $s); }
+    public function length() { return sqrt($this->x * $this->x + $this->y * $this->y); }
+    public function distance_to($o) { return sqrt(($this->x - $o->x) ** 2 + ($this->y - $o->y) ** 2); }
+}
+
+class Asteroid {
+    public $pos;
+    public $vel;
+    public $size;
+    public $alive;
+    public function __construct($pos, $vel, $size, $alive) {
+        $this->pos = $pos;
+        $this->vel = $vel;
+        $this->size = $size;
+        $this->alive = $alive;
+    }
+}
+
+interface IShipHost {
+    public function warp_out();
+    public function warp_in();
+    public function spawn_explosion();
+    public function reset_ship();
+}
+
+function _rf() { return mt_rand() / mt_getrandmax(); }
+function _from_angle($a, $speed) { return new Vec2(cos($a) * $speed, sin($a) * $speed); }
+
+// ------------------------------------------------------------ Ship
+@@system Ship(host) {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+        get_hyperspaces_remaining() { @@:($this->hyperspaces_remaining) }
+
+    interface:
+        tick(dt)
+        hit()
+        hyperspace()
+        respawn()
+        fire()
+        can_fire()
+        can_be_hit()
+        can_hyperspace()
+        is_visible()
+        is_alive()
+        get_lives()
+
+    machine:
+
+        $Alive {
+            $.cooldown = 0.0
+            tick(dt) {
+                if ($.cooldown > 0.0) {
+                    $.cooldown = $.cooldown - $dt;
+                }
+            }
+            fire() { $.cooldown = 0.22; }
+            hit() { -> $Exploding }
+            hyperspace() {
+                if ($this->hyperspaces_remaining > 0) {
+                    $this->hyperspaces_remaining = $this->hyperspaces_remaining - 1;
+                    -> $InHyperspace
+                }
+            }
+            can_fire()       { @@:($.cooldown <= 0.0) }
+            can_be_hit()     { @@:(true) }
+            can_hyperspace() { @@:($this->hyperspaces_remaining > 0) }
+            is_visible()     { @@:(true) }
+            is_alive()       { @@:(true) }
+            get_lives()      { @@:($this->lives_remaining) }
+        }
+
+        $InHyperspace {
+            $.timer = 0.0
+            $.duration = 0.4
+            $>() { $this->host->warp_out(); }
+            <$() { $this->host->warp_in(); }
+            tick(dt) {
+                $.timer = $.timer + $dt;
+                if ($.timer >= $.duration) {
+                    -> "warp complete" $Alive
+                }
+            }
+            can_fire()       { @@:(false) }
+            can_be_hit()     { @@:(false) }
+            can_hyperspace() { @@:(false) }
+            is_visible()     { @@:(false) }
+            is_alive()       { @@:(true) }
+            get_lives()      { @@:($this->lives_remaining) }
+        }
+
+        $Exploding {
+            $.timer = 0.0
+            $.duration = 1.0
+            $>() { $this->host->spawn_explosion(); }
+            tick(dt) {
+                $.timer = $.timer + $dt;
+                if ($.timer >= $.duration) {
+                    $this->lives_remaining = $this->lives_remaining - 1;
+                    if ($this->lives_remaining <= 0) {
+                        -> "no lives left" $Dead
+                    } else {
+                        -> "lives remain" $Respawning
+                    }
+                }
+            }
+            can_fire()       { @@:(false) }
+            can_be_hit()     { @@:(false) }
+            can_hyperspace() { @@:(false) }
+            is_visible()     { @@:(true) }
+            is_alive()       { @@:(false) }
+            get_lives()      { @@:($this->lives_remaining) }
+        }
+
+        $Respawning {
+            $.timer = 0.0
+            $.duration = 2.0
+            $>() { $this->host->reset_ship(); }
+            tick(dt) {
+                $.timer = $.timer + $dt;
+                if ($.timer >= $.duration) {
+                    -> "invuln expired" $Alive
+                }
+            }
+            can_fire()       { @@:(true) }
+            can_be_hit()     { @@:(false) }
+            can_hyperspace() { @@:(false) }
+            is_visible()     { @@:(true) }
+            is_alive()       { @@:(true) }
+            get_lives()      { @@:($this->lives_remaining) }
+        }
+
+        $Dead {
+            respawn() {
+                $this->lives_remaining = $this->starting_lives;
+                $this->hyperspaces_remaining = $this->starting_hyperspaces;
+                -> $Respawning
+            }
+            can_fire()       { @@:(false) }
+            can_be_hit()     { @@:(false) }
+            can_hyperspace() { @@:(false) }
+            is_visible()     { @@:(false) }
+            is_alive()       { @@:(false) }
+            get_lives()      { @@:(0) }
+        }
+
+    domain:
+        host = host
+        lives_remaining = 3
+        starting_lives = 3
+        hyperspaces_remaining = 3
+        starting_hyperspaces = 3
+}
+
+// ------------------------------------------------------------ AsteroidField
+@@system AsteroidField {
+
+    interface:
+        spawn_wave(count, court_size)
+        split(index)
+        remove(index)
+        clear()
+        advance(dt, court_size)
+        count()
+        alive_count()
+        is_alive(index)
+        position(index)
+        velocity(index)
+        size_of(index)
+        radius_of(index)
+
+    machine:
+
+        $Active {
+            spawn_wave(count, court_size) {
+                $this->asteroids = [];
+                $i = 0;
+                while ($i < $count) {
+                    $this->spawn_large($court_size);
+                    $i = $i + 1;
+                }
+            }
+
+            split(index) {
+                if ($index < 0 || $index >= count($this->asteroids)) {
+                    @@:return(false)
+                }
+                if (!$this->asteroids[$index]->alive) {
+                    @@:return(false)
+                }
+                $this->asteroids[$index]->alive = false;
+                $sz = $this->asteroids[$index]->size;
+                $p = $this->asteroids[$index]->pos;
+                if ($sz > 1) {
+                    $this->spawn_child($p, $sz - 1);
+                    $this->spawn_child($p, $sz - 1);
+                }
+                @@:(true)
+            }
+
+            remove(index) {
+                if ($index < 0 || $index >= count($this->asteroids)) {
+                    return;
+                }
+                $this->asteroids[$index]->alive = false;
+            }
+
+            clear() { $this->asteroids = []; }
+
+            advance(dt, court_size) {
+                $i = 0;
+                while ($i < count($this->asteroids)) {
+                    if ($this->asteroids[$i]->alive) {
+                        $this->asteroids[$i]->pos = $this->asteroids[$i]->pos->add($this->asteroids[$i]->vel->scale($dt));
+                        if ($this->asteroids[$i]->pos->x < 0.0) { $this->asteroids[$i]->pos->x = $this->asteroids[$i]->pos->x + $court_size->x; }
+                        if ($this->asteroids[$i]->pos->x > $court_size->x) { $this->asteroids[$i]->pos->x = $this->asteroids[$i]->pos->x - $court_size->x; }
+                        if ($this->asteroids[$i]->pos->y < 0.0) { $this->asteroids[$i]->pos->y = $this->asteroids[$i]->pos->y + $court_size->y; }
+                        if ($this->asteroids[$i]->pos->y > $court_size->y) { $this->asteroids[$i]->pos->y = $this->asteroids[$i]->pos->y - $court_size->y; }
+                    }
+                    $i = $i + 1;
+                }
+            }
+
+            count() { @@:(count($this->asteroids)) }
+
+            alive_count() {
+                $c = 0;
+                $i = 0;
+                while ($i < count($this->asteroids)) {
+                    if ($this->asteroids[$i]->alive) { $c = $c + 1; }
+                    $i = $i + 1;
+                }
+                @@:($c)
+            }
+
+            is_alive(index) {
+                if ($index < 0 || $index >= count($this->asteroids)) {
+                    @@:return(false)
+                }
+                @@:($this->asteroids[$index]->alive)
+            }
+
+            position(index) {
+                if ($index < 0 || $index >= count($this->asteroids)) {
+                    @@:return(new Vec2(0, 0))
+                }
+                @@:($this->asteroids[$index]->pos)
+            }
+
+            velocity(index) {
+                if ($index < 0 || $index >= count($this->asteroids)) {
+                    @@:return(new Vec2(0, 0))
+                }
+                @@:($this->asteroids[$index]->vel)
+            }
+
+            size_of(index) {
+                if ($index < 0 || $index >= count($this->asteroids)) {
+                    @@:return(0)
+                }
+                @@:($this->asteroids[$index]->size)
+            }
+
+            radius_of(index) {
+                if ($index < 0 || $index >= count($this->asteroids)) {
+                    @@:return(0.0)
+                }
+                $sz = $this->asteroids[$index]->size;
+                if ($sz == 3) { @@:return(32.0) }
+                if ($sz == 2) { @@:return(18.0) }
+                @@:(10.0)
+            }
+        }
+
+    actions:
+
+        spawn_large(court_size) {
+            $edge = (int)(_rf() * 4);
+            $pos = new Vec2(0.0, 0.0);
+            if ($edge == 0) {
+                $pos = new Vec2(0.0, _rf() * $court_size->y);
+            } elseif ($edge == 1) {
+                $pos = new Vec2($court_size->x, _rf() * $court_size->y);
+            } elseif ($edge == 2) {
+                $pos = new Vec2(_rf() * $court_size->x, 0.0);
+            } else {
+                $pos = new Vec2(_rf() * $court_size->x, $court_size->y);
+            }
+            $angle = _rf() * 2.0 * M_PI;
+            $speed = 40.0 + _rf() * 30.0;
+            $vel = _from_angle($angle, $speed);
+            $this->asteroids[] = new Asteroid($pos, $vel, 3, true);
+        }
+
+        spawn_child(pos, size) {
+            $angle = _rf() * 2.0 * M_PI;
+            $speed = 60.0 + _rf() * 40.0 + (3 - $size) * 20.0;
+            $vel = _from_angle($angle, $speed);
+            $this->asteroids[] = new Asteroid($pos, $vel, $size, true);
+        }
+
+    domain:
+        asteroids = []
+}
+
+// ------------------------------------------------------------ AsteroidsGame
+@@[main]
+@@system AsteroidsGame(ship_host, difficulty) {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+        get_bullets_in_flight() { @@:($this->bullets_in_flight) }
+        get_max_bullets()       { @@:($this->max_bullets) }
+
+    interface:
+        start()
+        restart()
+        pause()
+        resume()
+        tick(dt, court_size)
+        ship_hit_asteroid(index)
+        bullet_hit_asteroid(index)
+        ship_hyperspace()
+        bullet_fired()
+        bullet_expired()
+        get_score()
+        get_lives()
+        get_wave()
+        get_difficulty()
+        is_paused()
+
+    machine:
+
+        $Attract {
+            $>() {
+                $this->score = 0;
+                $this->wave = 1;
+                $this->bullets_in_flight = 0;
+            }
+            start() {
+                $this->ship->respawn();
+                $n = $this->asteroids_for_wave(1);
+                $this->field->spawn_wave($n, $this->last_court_size);
+                -> $Playing
+            }
+            get_score()      { @@:($this->score) }
+            get_lives()      { @@:($this->ship->get_lives()) }
+            get_wave()       { @@:($this->wave) }
+            get_difficulty() { @@:($this->difficulty) }
+            is_paused()      { @@:(false) }
+        }
+
+        $InGame {
+            pause() {
+                push$ -> $Paused
+            }
+            bullet_fired() {
+                $this->bullets_in_flight = $this->bullets_in_flight + 1;
+            }
+            bullet_expired() {
+                if ($this->bullets_in_flight > 0) {
+                    $this->bullets_in_flight = $this->bullets_in_flight - 1;
+                }
+            }
+            get_score()      { @@:($this->score) }
+            get_lives()      { @@:($this->ship->get_lives()) }
+            get_wave()       { @@:($this->wave) }
+            get_difficulty() { @@:($this->difficulty) }
+            is_paused()      { @@:(false) }
+        }
+
+        $Playing => $InGame {
+            tick(dt, court_size) {
+                $this->last_court_size = $court_size;
+                $this->ship->tick($dt);
+                $this->field->advance($dt, $court_size);
+            }
+            ship_hit_asteroid(index) {
+                if (!$this->ship->can_be_hit()) {
+                    return;
+                }
+                $this->ship->hit();
+                -> $ShipDying
+            }
+            bullet_hit_asteroid(index) {
+                if ($this->field->split($index)) {
+                    $sz = $this->size_points($index);
+                    $this->score = $this->score + $sz * $this->difficulty;
+                    if ($this->field->alive_count() <= 0) {
+                        -> "all asteroids cleared" $WaveClear
+                    }
+                }
+            }
+            ship_hyperspace() {
+                $this->ship->hyperspace();
+            }
+            => $^
+        }
+
+        $ShipDying => $InGame {
+            tick(dt, court_size) {
+                $this->last_court_size = $court_size;
+                $this->ship->tick($dt);
+                $this->field->advance($dt, $court_size);
+                if ($this->ship->get_current_state_name() == "Respawning") {
+                    -> "ship respawning" $Playing
+                } elseif ($this->ship->get_current_state_name() == "Dead") {
+                    -> "no lives left" $GameOver
+                }
+            }
+            => $^
+        }
+
+        $WaveClear => $InGame {
+            $>() { $this->wave_timer = 0.0; }
+            tick(dt, court_size) {
+                $this->last_court_size = $court_size;
+                $this->ship->tick($dt);
+                $this->wave_timer = $this->wave_timer + $dt;
+                if ($this->wave_timer >= $this->wave_pause) {
+                    $this->wave = $this->wave + 1;
+                    $n = $this->asteroids_for_wave($this->wave);
+                    $this->field->spawn_wave($n, $court_size);
+                    -> "next wave" $Playing
+                }
+            }
+            => $^
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+            get_score()      { @@:($this->score) }
+            get_lives()      { @@:($this->ship->get_lives()) }
+            get_wave()       { @@:($this->wave) }
+            get_difficulty() { @@:($this->difficulty) }
+            is_paused()      { @@:(true) }
+        }
+
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+            get_score()      { @@:($this->score) }
+            get_lives()      { @@:($this->ship->get_lives()) }
+            get_wave()       { @@:($this->wave) }
+            get_difficulty() { @@:($this->difficulty) }
+            is_paused()      { @@:(false) }
+        }
+
+    actions:
+
+        asteroids_for_wave(wave) {
+            $base_count = 2 + $this->difficulty;
+            return $base_count + $wave - 1;
+        }
+
+        size_points(index) {
+            $sz = $this->field->size_of($index);
+            if ($sz == 3) { return 20; }
+            if ($sz == 2) { return 50; }
+            return 100;
+        }
+
+    domain:
+        difficulty = difficulty
+        score = 0
+        wave = 1
+        wave_timer = 0.0
+        wave_pause = 2.0
+        bullets_in_flight = 0
+        max_bullets = 4
+        last_court_size = new Vec2(640, 480)
+        ship: Ship = @@Ship(ship_host)
+        field: AsteroidField = @@AsteroidField()
+}

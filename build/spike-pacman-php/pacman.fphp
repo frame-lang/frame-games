@@ -1,0 +1,455 @@
+@@[target("php")]
+
+// Pac-Man ghost AI — PHP port of the canonical controller
+// (games/pacman/src/pacman.fjs). Same three systems (Ghost / GhostPen /
+// GhostGame), states, the $OutOfPen HSM parent, the push$/pop$ frightened
+// subroutine, the parameterized Ghost(name, home_corner, target_kind), the
+// $Frightened enter/exit broadcast, and the driver-populated ghosts list.
+// Bodies are native PHP (the php backend is native passthrough): $vars with
+// `;` terminators, if/while (cond) { }, true/false, count()/[]= appends,
+// $this->x domain access, $this->ghosts[$i]->tick($dt) child calls.
+
+// ------------------------------------------------------------ Ghost
+@@system Ghost(name, home_corner, target_kind) {
+
+    interface:
+        tick(dt)
+        power_pellet_eaten()
+        frighten_expired()
+        eaten()
+        arrived_at_pen()
+        released()
+        phase_changed_to_chase()
+        phase_changed_to_scatter()
+        reset_to_pen()
+        get_state()
+        get_name()
+        get_home_corner()
+        get_target_kind()
+        is_frightened()
+        is_dangerous()
+        is_edible()
+
+    machine:
+        $InPen {
+            released() { -> $Scatter }
+            reset_to_pen() { }
+
+            get_state()        { @@:("in_pen") }
+            get_name()         { @@:($this->gname) }
+            get_home_corner()  { @@:($this->home) }
+            get_target_kind()  { @@:($this->tkind) }
+            is_frightened()    { @@:(false) }
+            is_dangerous()     { @@:(false) }
+            is_edible()        { @@:(false) }
+        }
+
+        $OutOfPen {
+            power_pellet_eaten() {
+                push$
+                -> $Frightened
+            }
+
+            reset_to_pen() { -> $InPen }
+
+            get_state()        { @@:("out_of_pen") }
+            get_name()         { @@:($this->gname) }
+            get_home_corner()  { @@:($this->home) }
+            get_target_kind()  { @@:($this->tkind) }
+            is_frightened()    { @@:(false) }
+            is_dangerous()     { @@:(true) }
+            is_edible()        { @@:(false) }
+        }
+
+        $Chase => $OutOfPen {
+            phase_changed_to_scatter() { -> $Scatter }
+            get_state() { @@:("chase") }
+            => $^
+        }
+
+        $Scatter => $OutOfPen {
+            phase_changed_to_chase() { -> $Chase }
+            get_state() { @@:("scatter") }
+            => $^
+        }
+
+        $Frightened {
+            frighten_expired() { -> pop$ }
+            eaten() { -> $Eaten }
+            reset_to_pen() { -> $InPen }
+
+            get_state()        { @@:("frightened") }
+            get_name()         { @@:($this->gname) }
+            get_home_corner()  { @@:($this->home) }
+            get_target_kind()  { @@:($this->tkind) }
+            is_frightened()    { @@:(true) }
+            is_dangerous()     { @@:(false) }
+            is_edible()        { @@:(true) }
+        }
+
+        $Eaten {
+            arrived_at_pen() { -> $InPen }
+
+            get_state()        { @@:("eaten") }
+            get_name()         { @@:($this->gname) }
+            get_home_corner()  { @@:($this->home) }
+            get_target_kind()  { @@:($this->tkind) }
+            is_frightened()    { @@:(false) }
+            is_dangerous()     { @@:(false) }
+            is_edible()        { @@:(false) }
+        }
+
+    domain:
+        gname = name
+        home = home_corner
+        tkind = target_kind
+}
+
+// ------------------------------------------------------------ GhostPen
+@@system GhostPen {
+
+    interface:
+        tick(dt)
+        reset()
+        next_release_index()
+        should_release()
+        consume_release()
+
+    machine:
+        $Active {
+            tick(dt) {
+                $this->release_timer = $this->release_timer + $dt;
+            }
+
+            reset() {
+                $this->release_timer = 0.0;
+                $this->next_index = 0;
+            }
+
+            next_release_index() { @@:($this->next_index) }
+
+            should_release() {
+                @@:($this->release_timer >= $this->release_interval && $this->next_index < $this->max_ghosts)
+            }
+
+            consume_release() {
+                $this->next_index = $this->next_index + 1;
+                $this->release_timer = 0.0;
+            }
+        }
+
+    domain:
+        release_timer = 0.0
+        release_interval = 2.0
+        next_index = 0
+        max_ghosts = 4
+}
+
+// ------------------------------------------------------------ GhostGame
+@@[main]
+@@system GhostGame {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+
+    interface:
+        tick(dt)
+        start()
+        add_ghost(g)
+        power_pellet_picked_up()
+        ghost_caught(index)
+        ghost_arrived_at_pen(index)
+        get_phase()
+        is_frightened()
+        ghost_count()
+        ghost_state(index)
+        ghost_is_dangerous(index)
+        ghost_is_edible(index)
+        ghost_home_corner(index)
+        ghost_target_kind(index)
+        get_score()
+        frighten_seconds_left()
+
+    machine:
+        $Idle {
+            add_ghost(g) {
+                $this->ghosts[] = $g;
+            }
+
+            start() {
+                $this->phase_timer = 0.0;
+                $this->phase_index = 0;
+                $this->score = 0;
+                $this->pen->reset();
+                -> $Scatter
+            }
+
+            get_phase()               { @@:("idle") }
+            is_frightened()           { @@:(false) }
+            ghost_count()             { @@:(count($this->ghosts)) }
+            ghost_state(index)        { @@:($this->_q_state($index)) }
+            ghost_is_dangerous(index) { @@:($this->_q_dangerous($index)) }
+            ghost_is_edible(index)    { @@:($this->_q_edible($index)) }
+            ghost_home_corner(index)  { @@:($this->_q_home($index)) }
+            ghost_target_kind(index)  { @@:($this->_q_tkind($index)) }
+            get_score()               { @@:($this->score) }
+            frighten_seconds_left()   { @@:(0.0) }
+        }
+
+        $Scatter {
+            $>() {
+                $this->phase_timer = 0.0;
+                $this->_broadcast_scatter();
+                $this->_try_release();
+            }
+
+            tick(dt) {
+                $this->phase_timer = $this->phase_timer + $dt;
+                $this->_tick_all($dt);
+                $this->_try_release();
+                if ($this->phase_timer >= $this->_scatter_duration()) {
+                    -> $Chase
+                }
+            }
+
+            power_pellet_picked_up() {
+                push$
+                -> $Frightened
+            }
+
+            ghost_caught(index) { }
+
+            ghost_arrived_at_pen(index) {
+                $this->_deliver_arrived($index);
+            }
+
+            add_ghost(g) {
+                $this->ghosts[] = $g;
+            }
+
+            get_phase()               { @@:("scatter") }
+            is_frightened()           { @@:(false) }
+            ghost_count()             { @@:(count($this->ghosts)) }
+            ghost_state(index)        { @@:($this->_q_state($index)) }
+            ghost_is_dangerous(index) { @@:($this->_q_dangerous($index)) }
+            ghost_is_edible(index)    { @@:($this->_q_edible($index)) }
+            ghost_home_corner(index)  { @@:($this->_q_home($index)) }
+            ghost_target_kind(index)  { @@:($this->_q_tkind($index)) }
+            get_score()               { @@:($this->score) }
+            frighten_seconds_left()   { @@:(0.0) }
+        }
+
+        $Chase {
+            $>() {
+                $this->phase_timer = 0.0;
+                $this->_broadcast_chase();
+                $this->_try_release();
+            }
+
+            tick(dt) {
+                $this->phase_timer = $this->phase_timer + $dt;
+                $this->_tick_all($dt);
+                $this->_try_release();
+                if ($this->phase_timer >= $this->_chase_duration()) {
+                    $this->phase_index = $this->phase_index + 1;
+                    -> $Scatter
+                }
+            }
+
+            power_pellet_picked_up() {
+                push$
+                -> $Frightened
+            }
+
+            ghost_caught(index) { }
+
+            ghost_arrived_at_pen(index) {
+                $this->_deliver_arrived($index);
+            }
+
+            add_ghost(g) {
+                $this->ghosts[] = $g;
+            }
+
+            get_phase()               { @@:("chase") }
+            is_frightened()           { @@:(false) }
+            ghost_count()             { @@:(count($this->ghosts)) }
+            ghost_state(index)        { @@:($this->_q_state($index)) }
+            ghost_is_dangerous(index) { @@:($this->_q_dangerous($index)) }
+            ghost_is_edible(index)    { @@:($this->_q_edible($index)) }
+            ghost_home_corner(index)  { @@:($this->_q_home($index)) }
+            ghost_target_kind(index)  { @@:($this->_q_tkind($index)) }
+            get_score()               { @@:($this->score) }
+            frighten_seconds_left()   { @@:(0.0) }
+        }
+
+        $Frightened {
+            $>() {
+                $this->frighten_timer = 0.0;
+                $this->_broadcast_frighten();
+            }
+
+            <$() {
+                $this->_broadcast_frighten_expired();
+            }
+
+            tick(dt) {
+                $this->frighten_timer = $this->frighten_timer + $dt;
+                $this->_tick_all($dt);
+                $this->_try_release();
+                if ($this->frighten_timer >= $this->frighten_duration) {
+                    -> pop$
+                }
+            }
+
+            power_pellet_picked_up() {
+                -> $Frightened
+            }
+
+            ghost_caught(index) {
+                if ($index < 0 || $index >= count($this->ghosts)) {
+                    return;
+                }
+                if ($this->ghosts[$index]->is_edible()) {
+                    $this->ghosts[$index]->eaten();
+                    $this->score = $this->score + $this->points_per_ghost;
+                }
+            }
+
+            ghost_arrived_at_pen(index) {
+                $this->_deliver_arrived($index);
+            }
+
+            add_ghost(g) {
+                $this->ghosts[] = $g;
+            }
+
+            get_phase()               { @@:("frightened") }
+            is_frightened()           { @@:(true) }
+            ghost_count()             { @@:(count($this->ghosts)) }
+            ghost_state(index)        { @@:($this->_q_state($index)) }
+            ghost_is_dangerous(index) { @@:($this->_q_dangerous($index)) }
+            ghost_is_edible(index)    { @@:($this->_q_edible($index)) }
+            ghost_home_corner(index)  { @@:($this->_q_home($index)) }
+            ghost_target_kind(index)  { @@:($this->_q_tkind($index)) }
+            get_score()               { @@:($this->score) }
+            frighten_seconds_left() {
+                $rem = $this->frighten_duration - $this->frighten_timer;
+                if ($rem < 0.0) {
+                    @@:return(0.0)
+                }
+                @@:($rem)
+            }
+        }
+
+    actions:
+        _scatter_duration() {
+            if ($this->phase_index == 0) { return 7.0; }
+            if ($this->phase_index == 1) { return 5.0; }
+            return 5.0;
+        }
+
+        _chase_duration() {
+            if ($this->phase_index >= 3) { return 9999.0; }
+            return 20.0;
+        }
+
+        _broadcast_scatter() {
+            $i = 0;
+            while ($i < count($this->ghosts)) {
+                $this->ghosts[$i]->phase_changed_to_scatter();
+                $i = $i + 1;
+            }
+        }
+
+        _broadcast_chase() {
+            $i = 0;
+            while ($i < count($this->ghosts)) {
+                $this->ghosts[$i]->phase_changed_to_chase();
+                $i = $i + 1;
+            }
+        }
+
+        _broadcast_frighten() {
+            $i = 0;
+            while ($i < count($this->ghosts)) {
+                $this->ghosts[$i]->power_pellet_eaten();
+                $i = $i + 1;
+            }
+        }
+
+        _broadcast_frighten_expired() {
+            $i = 0;
+            while ($i < count($this->ghosts)) {
+                $this->ghosts[$i]->frighten_expired();
+                $i = $i + 1;
+            }
+        }
+
+        _tick_all(dt) {
+            $i = 0;
+            while ($i < count($this->ghosts)) {
+                $this->ghosts[$i]->tick($dt);
+                $i = $i + 1;
+            }
+            $this->pen->tick($dt);
+        }
+
+        _try_release() {
+            if ($this->pen->should_release()) {
+                $idx = $this->pen->next_release_index();
+                if ($idx >= 0 && $idx < count($this->ghosts)) {
+                    $this->ghosts[$idx]->released();
+                    $this->pen->consume_release();
+                }
+            }
+        }
+
+        _deliver_arrived(index) {
+            if ($index < 0 || $index >= count($this->ghosts)) {
+                return;
+            }
+            $this->ghosts[$index]->arrived_at_pen();
+        }
+
+        _q_state(index) {
+            if ($index < 0 || $index >= count($this->ghosts)) {
+                return "";
+            }
+            return $this->ghosts[$index]->get_state();
+        }
+        _q_dangerous(index) {
+            if ($index < 0 || $index >= count($this->ghosts)) {
+                return false;
+            }
+            return $this->ghosts[$index]->is_dangerous();
+        }
+        _q_edible(index) {
+            if ($index < 0 || $index >= count($this->ghosts)) {
+                return false;
+            }
+            return $this->ghosts[$index]->is_edible();
+        }
+        _q_home(index) {
+            if ($index < 0 || $index >= count($this->ghosts)) {
+                return ["x" => 0.0, "y" => 0.0];
+            }
+            return $this->ghosts[$index]->get_home_corner();
+        }
+        _q_tkind(index) {
+            if ($index < 0 || $index >= count($this->ghosts)) {
+                return 0;
+            }
+            return $this->ghosts[$index]->get_target_kind();
+        }
+
+    domain:
+        score = 0
+        phase_timer = 0.0
+        phase_index = 0
+        frighten_timer = 0.0
+        frighten_duration = 6.0
+        points_per_ghost = 200
+        ghosts = []
+        pen = @@GhostPen()
+}

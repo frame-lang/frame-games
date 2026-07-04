@@ -1,0 +1,464 @@
+@@[target("cpp")]
+
+// Pac-Man ghost AI — C++ port of the canonical controller
+// (games/pacman/src/pacman.fjs, which mirrors the Godot reference). Same three
+// systems (Ghost / GhostPen / GhostGame), states, the $OutOfPen HSM parent,
+// the push$/pop$ frightened subroutine, the parameterized
+// Ghost(name, home_corner, target_kind), the $Frightened enter/exit broadcast,
+// and the driver-populated ghosts list. Bodies are native C.
+//
+// C++ shapes: std::vector<Ghost*> for the driver-populated instance list
+// (the pointer-vector is the canonical multi-instance shape — framec #159:
+// indexed calls lower to `->`); std::string returns; doubles throughout so
+// timer math matches the JS baseline bit-for-bit.
+
+#include <vector>
+#include <string>
+
+struct Vector2 { double x, y; };
+
+// ------------------------------------------------------------ Ghost
+@@system Ghost(name: std::string, home_corner: Vector2, target_kind: int) {
+
+    interface:
+        tick(dt: double)
+        power_pellet_eaten()
+        frighten_expired()
+        eaten()
+        arrived_at_pen()
+        released()
+        phase_changed_to_chase()
+        phase_changed_to_scatter()
+        reset_to_pen()
+        get_state(): std::string
+        get_name(): std::string
+        get_home_corner(): Vector2
+        get_target_kind(): int
+        is_frightened(): bool
+        is_dangerous(): bool
+        is_edible(): bool
+
+    machine:
+        $InPen {
+            released() { -> $Scatter }
+            reset_to_pen() { }
+
+            get_state(): std::string    { @@:("in_pen") }
+            get_name(): std::string     { @@:(@@:self.gname) }
+            get_home_corner(): Vector2  { @@:(@@:self.home) }
+            get_target_kind(): int      { @@:(@@:self.tkind) }
+            is_frightened(): bool       { @@:(false) }
+            is_dangerous(): bool        { @@:(false) }
+            is_edible(): bool           { @@:(false) }
+        }
+
+        $OutOfPen {
+            power_pellet_eaten() {
+                push$
+                -> $Frightened
+            }
+
+            reset_to_pen() { -> $InPen }
+
+            get_state(): std::string    { @@:("out_of_pen") }
+            get_name(): std::string     { @@:(@@:self.gname) }
+            get_home_corner(): Vector2  { @@:(@@:self.home) }
+            get_target_kind(): int      { @@:(@@:self.tkind) }
+            is_frightened(): bool       { @@:(false) }
+            is_dangerous(): bool        { @@:(true) }
+            is_edible(): bool           { @@:(false) }
+        }
+
+        $Chase => $OutOfPen {
+            phase_changed_to_scatter() { -> $Scatter }
+            get_state(): std::string { @@:("chase") }
+            => $^
+        }
+
+        $Scatter => $OutOfPen {
+            phase_changed_to_chase() { -> $Chase }
+            get_state(): std::string { @@:("scatter") }
+            => $^
+        }
+
+        $Frightened {
+            frighten_expired() { -> pop$ }
+            eaten() { -> $Eaten }
+            reset_to_pen() { -> $InPen }
+
+            get_state(): std::string    { @@:("frightened") }
+            get_name(): std::string     { @@:(@@:self.gname) }
+            get_home_corner(): Vector2  { @@:(@@:self.home) }
+            get_target_kind(): int      { @@:(@@:self.tkind) }
+            is_frightened(): bool       { @@:(true) }
+            is_dangerous(): bool        { @@:(false) }
+            is_edible(): bool           { @@:(true) }
+        }
+
+        $Eaten {
+            arrived_at_pen() { -> $InPen }
+
+            get_state(): std::string    { @@:("eaten") }
+            get_name(): std::string     { @@:(@@:self.gname) }
+            get_home_corner(): Vector2  { @@:(@@:self.home) }
+            get_target_kind(): int      { @@:(@@:self.tkind) }
+            is_frightened(): bool       { @@:(false) }
+            is_dangerous(): bool        { @@:(false) }
+            is_edible(): bool           { @@:(false) }
+        }
+
+    domain:
+        gname: std::string = name
+        home: Vector2 = home_corner
+        tkind: int = target_kind
+}
+
+// ------------------------------------------------------------ GhostPen
+@@system GhostPen {
+
+    interface:
+        tick(dt: double)
+        reset()
+        next_release_index(): int
+        should_release(): bool
+        consume_release()
+
+    machine:
+        $Active {
+            tick(dt: double) {
+                @@:self.release_timer = @@:self.release_timer + dt;
+            }
+
+            reset() {
+                @@:self.release_timer = 0.0;
+                @@:self.next_index = 0;
+            }
+
+            next_release_index(): int { @@:(@@:self.next_index) }
+
+            should_release(): bool {
+                @@:(@@:self.release_timer >= @@:self.release_interval && @@:self.next_index < @@:self.max_ghosts)
+            }
+
+            consume_release() {
+                @@:self.next_index = @@:self.next_index + 1;
+                @@:self.release_timer = 0.0;
+            }
+        }
+
+    domain:
+        release_timer: double = 0.0
+        release_interval: double = 2.0
+        next_index: int = 0
+        max_ghosts: int = 4
+}
+
+// ------------------------------------------------------------ GhostGame
+@@[main]
+@@system GhostGame {
+
+    operations:
+        get_current_state_name(): std::string { @@:(@@:system.state.name) }
+
+    interface:
+        tick(dt: double)
+        start()
+        add_ghost(g: Ghost*)
+        power_pellet_picked_up()
+        ghost_caught(index: int)
+        ghost_arrived_at_pen(index: int)
+        get_phase(): std::string
+        is_frightened(): bool
+        ghost_count(): int
+        ghost_state(index: int): std::string
+        ghost_is_dangerous(index: int): bool
+        ghost_is_edible(index: int): bool
+        ghost_home_corner(index: int): Vector2
+        ghost_target_kind(index: int): int
+        get_score(): int
+        frighten_seconds_left(): double
+
+    machine:
+        $Idle {
+            add_ghost(g: Ghost*) {
+                @@:self.ghosts.push_back(g);
+            }
+
+            start() {
+                @@:self.phase_timer = 0.0;
+                @@:self.phase_index = 0;
+                @@:self.score = 0;
+                @@:self.pen.reset();
+                -> $Scatter
+            }
+
+            get_phase(): std::string               { @@:("idle") }
+            is_frightened(): bool                  { @@:(false) }
+            ghost_count(): int                     { @@:((int)@@:self.ghosts.size()) }
+            ghost_state(index: int): std::string   { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: int): bool   { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: int): bool      { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: int): Vector2 { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: int): int     { @@:(@@:self._q_tkind(index)) }
+            get_score(): int                       { @@:(@@:self.score) }
+            frighten_seconds_left(): double         { @@:(0.0) }
+        }
+
+        $Scatter {
+            $>() {
+                @@:self.phase_timer = 0.0;
+                @@:self._broadcast_scatter();
+                @@:self._try_release();
+            }
+
+            tick(dt: double) {
+                @@:self.phase_timer = @@:self.phase_timer + dt;
+                @@:self._tick_all(dt);
+                @@:self._try_release();
+                if (@@:self.phase_timer >= @@:self._scatter_duration()) {
+                    -> $Chase
+                }
+            }
+
+            power_pellet_picked_up() {
+                push$
+                -> $Frightened
+            }
+
+            ghost_caught(index: int) { }
+
+            ghost_arrived_at_pen(index: int) {
+                @@:self._deliver_arrived(index);
+            }
+
+            add_ghost(g: Ghost*) {
+                @@:self.ghosts.push_back(g);
+            }
+
+            get_phase(): std::string               { @@:("scatter") }
+            is_frightened(): bool                  { @@:(false) }
+            ghost_count(): int                     { @@:((int)@@:self.ghosts.size()) }
+            ghost_state(index: int): std::string   { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: int): bool   { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: int): bool      { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: int): Vector2 { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: int): int     { @@:(@@:self._q_tkind(index)) }
+            get_score(): int                       { @@:(@@:self.score) }
+            frighten_seconds_left(): double         { @@:(0.0) }
+        }
+
+        $Chase {
+            $>() {
+                @@:self.phase_timer = 0.0;
+                @@:self._broadcast_chase();
+                @@:self._try_release();
+            }
+
+            tick(dt: double) {
+                @@:self.phase_timer = @@:self.phase_timer + dt;
+                @@:self._tick_all(dt);
+                @@:self._try_release();
+                if (@@:self.phase_timer >= @@:self._chase_duration()) {
+                    @@:self.phase_index = @@:self.phase_index + 1;
+                    -> $Scatter
+                }
+            }
+
+            power_pellet_picked_up() {
+                push$
+                -> $Frightened
+            }
+
+            ghost_caught(index: int) { }
+
+            ghost_arrived_at_pen(index: int) {
+                @@:self._deliver_arrived(index);
+            }
+
+            add_ghost(g: Ghost*) {
+                @@:self.ghosts.push_back(g);
+            }
+
+            get_phase(): std::string               { @@:("chase") }
+            is_frightened(): bool                  { @@:(false) }
+            ghost_count(): int                     { @@:((int)@@:self.ghosts.size()) }
+            ghost_state(index: int): std::string   { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: int): bool   { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: int): bool      { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: int): Vector2 { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: int): int     { @@:(@@:self._q_tkind(index)) }
+            get_score(): int                       { @@:(@@:self.score) }
+            frighten_seconds_left(): double         { @@:(0.0) }
+        }
+
+        $Frightened {
+            $>() {
+                @@:self.frighten_timer = 0.0;
+                @@:self._broadcast_frighten();
+            }
+
+            <$() {
+                @@:self._broadcast_frighten_expired();
+            }
+
+            tick(dt: double) {
+                @@:self.frighten_timer = @@:self.frighten_timer + dt;
+                @@:self._tick_all(dt);
+                @@:self._try_release();
+                if (@@:self.frighten_timer >= @@:self.frighten_duration) {
+                    -> pop$
+                }
+            }
+
+            power_pellet_picked_up() {
+                -> $Frightened
+            }
+
+            ghost_caught(index: int) {
+                if (index < 0 || index >= (int)@@:self.ghosts.size()) {
+                    return;
+                }
+                if (@@:self.ghosts[index].is_edible()) {
+                    @@:self.ghosts[index].eaten();
+                    @@:self.score = @@:self.score + @@:self.points_per_ghost;
+                }
+            }
+
+            ghost_arrived_at_pen(index: int) {
+                @@:self._deliver_arrived(index);
+            }
+
+            add_ghost(g: Ghost*) {
+                @@:self.ghosts.push_back(g);
+            }
+
+            get_phase(): std::string               { @@:("frightened") }
+            is_frightened(): bool                  { @@:(true) }
+            ghost_count(): int                     { @@:((int)@@:self.ghosts.size()) }
+            ghost_state(index: int): std::string   { @@:(@@:self._q_state(index)) }
+            ghost_is_dangerous(index: int): bool   { @@:(@@:self._q_dangerous(index)) }
+            ghost_is_edible(index: int): bool      { @@:(@@:self._q_edible(index)) }
+            ghost_home_corner(index: int): Vector2 { @@:(@@:self._q_home(index)) }
+            ghost_target_kind(index: int): int     { @@:(@@:self._q_tkind(index)) }
+            get_score(): int                       { @@:(@@:self.score) }
+            frighten_seconds_left(): double {
+                float rem = @@:self.frighten_duration - @@:self.frighten_timer;
+                if (rem < 0.0) {
+                    @@:return(0.0)
+                }
+                @@:(rem)
+            }
+        }
+
+    actions:
+        _scatter_duration(): double {
+            if (@@:self.phase_index == 0) { return 7.0; }
+            if (@@:self.phase_index == 1) { return 5.0; }
+            return 5.0;
+        }
+
+        _chase_duration(): double {
+            if (@@:self.phase_index >= 3) { return 9999.0; }
+            return 20.0;
+        }
+
+        _broadcast_scatter() {
+            int i = 0;
+            while (i < (int)@@:self.ghosts.size()) {
+                @@:self.ghosts[i].phase_changed_to_scatter();
+                i = i + 1;
+            }
+        }
+
+        _broadcast_chase() {
+            int i = 0;
+            while (i < (int)@@:self.ghosts.size()) {
+                @@:self.ghosts[i].phase_changed_to_chase();
+                i = i + 1;
+            }
+        }
+
+        _broadcast_frighten() {
+            int i = 0;
+            while (i < (int)@@:self.ghosts.size()) {
+                @@:self.ghosts[i].power_pellet_eaten();
+                i = i + 1;
+            }
+        }
+
+        _broadcast_frighten_expired() {
+            int i = 0;
+            while (i < (int)@@:self.ghosts.size()) {
+                @@:self.ghosts[i].frighten_expired();
+                i = i + 1;
+            }
+        }
+
+        _tick_all(dt: double) {
+            int i = 0;
+            while (i < (int)@@:self.ghosts.size()) {
+                @@:self.ghosts[i].tick(dt);
+                i = i + 1;
+            }
+            @@:self.pen.tick(dt);
+        }
+
+        _try_release() {
+            if (@@:self.pen.should_release()) {
+                int idx = @@:self.pen.next_release_index();
+                if (idx >= 0 && idx < (int)@@:self.ghosts.size()) {
+                    @@:self.ghosts[idx].released();
+                    @@:self.pen.consume_release();
+                }
+            }
+        }
+
+        _deliver_arrived(index: int) {
+            if (index < 0 || index >= (int)@@:self.ghosts.size()) {
+                return;
+            }
+            @@:self.ghosts[index].arrived_at_pen();
+        }
+
+        _q_state(index: int): std::string {
+            if (index < 0 || index >= (int)@@:self.ghosts.size()) {
+                return "";
+            }
+            return @@:self.ghosts[index].get_state();
+        }
+        _q_dangerous(index: int): bool {
+            if (index < 0 || index >= (int)@@:self.ghosts.size()) {
+                return false;
+            }
+            return @@:self.ghosts[index].is_dangerous();
+        }
+        _q_edible(index: int): bool {
+            if (index < 0 || index >= (int)@@:self.ghosts.size()) {
+                return false;
+            }
+            return @@:self.ghosts[index].is_edible();
+        }
+        _q_home(index: int): Vector2 {
+            if (index < 0 || index >= (int)@@:self.ghosts.size()) {
+                Vector2 z = {0.0f, 0.0f};
+                return z;
+            }
+            return @@:self.ghosts[index].get_home_corner();
+        }
+        _q_tkind(index: int): int {
+            if (index < 0 || index >= (int)@@:self.ghosts.size()) {
+                return 0;
+            }
+            return @@:self.ghosts[index].get_target_kind();
+        }
+
+    domain:
+        score: int = 0
+        phase_timer: double = 0.0
+        phase_index: int = 0
+        frighten_timer: double = 0.0
+        frighten_duration: double = 6.0
+        points_per_ghost: int = 200
+        ghosts: std::vector<Ghost*> = {}
+        pen: GhostPen = @@GhostPen()
+}

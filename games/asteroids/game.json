@@ -30,6 +30,18 @@
     { "id": "godot-gdscript", "label": "Godot · GDScript", "entry": "/games/asteroids/versions/godot-gdscript/index.html" },
     { "id": "godot-c", "label": "Godot · C", "entry": "/games/asteroids/versions/godot-c/index.html" },
     { "id": "godot-rust", "label": "Godot · Rust", "entry": "/games/asteroids/versions/godot-rust/index.html" },
-    { "id": "godot-cpp", "label": "Godot · C++", "entry": "/games/asteroids/versions/godot-cpp/index.html" }
+    { "id": "godot-cpp", "label": "Godot · C++", "entry": "/games/asteroids/versions/godot-cpp/index.html" },
+    { "id": "flame", "label": "Flame · Dart", "entry": "/games/asteroids/versions/flame/index.html", "probe": "/games/asteroids/versions/flame/flutter_bootstrap.js" },
+    { "id": "raylib", "label": "raylib · C", "entry": "/games/asteroids/versions/raylib/index.html", "probe": "/games/asteroids/versions/raylib/index.wasm" },
+    { "id": "unity", "label": "Unity · C#", "entry": "/games/asteroids/versions/unity/index.html", "probe": "/games/asteroids/versions/unity/Build/build-out.loader.js" },
+    { "id": "ebiten", "label": "Ebitengine · Go", "entry": "/games/asteroids/versions/ebiten/index.html", "probe": "/games/asteroids/versions/ebiten/asteroids.wasm" },
+    { "id": "lua", "label": "LÖVE · Lua", "entry": "/games/asteroids/versions/lua/index.html", "probe": "/games/asteroids/versions/lua/love.wasm" },
+    { "id": "pygame", "label": "Pygame · Python", "entry": "/games/asteroids/versions/pygame/index.html", "probe": "/games/asteroids/versions/pygame/app.apk" },
+    { "id": "three", "label": "three.js · TS (3D)", "entry": "/games/asteroids/versions/three/index.html", "probe": "/games/asteroids/versions/three/bundle.js" },
+    { "id": "ruby", "label": "ruby.wasm · Ruby", "entry": "/games/asteroids/versions/ruby/index.html", "probe": "/games/asteroids/versions/ruby/ruby.wasm" },
+    { "id": "php", "label": "php-wasm · PHP", "entry": "https://cogiton.github.io/frame-games-php/index.html", "probe": "https://cogiton.github.io/frame-games-php/php-wasm/e31ec3faf3e2323a2b4a448342b50307765b8217.wasm" },
+    { "id": "java", "label": "TeaVM · Java", "entry": "/games/asteroids/versions/java/index.html", "probe": "/games/asteroids/versions/java/asteroids.js" },
+    { "id": "kotlin", "label": "Kotlin/JS · Kotlin", "entry": "/games/asteroids/versions/kotlin/index.html", "probe": "/games/asteroids/versions/kotlin/asteroids.js" },
+    { "id": "swift", "label": "SwiftWasm · Swift", "entry": "/games/asteroids/versions/swift/index.html", "probe": "/games/asteroids/versions/swift/AsteroidsSwift.wasm" }
   ]
 }

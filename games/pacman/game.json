@@ -1,0 +1,36 @@
+{
+  "id": "pacman",
+  "title": "Pac-Man (Ghost AI)",
+  "summary": "Four instances of one parameterized Ghost system, a mode scheduler that broadcasts scatter/chase waves to all of them, and a push$/pop$ frightened interrupt that must resume whichever phase it cut off.",
+  "teaches": "Parameterized multi-instance systems · $OutOfPen HSM parent · push$/pop$ frightened interrupt that resumes the interrupted phase",
+  "controls": "Arrows/WASD move · power pellets frighten ghosts · SPACE start · P pause · R refill",
+  "mobileButtons": [
+    { "label": "◀", "key": "ArrowLeft",  "hold": true,  "position": "left" },
+    { "label": "▶", "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "▲", "key": "ArrowUp",    "hold": true,  "position": "right" },
+    { "label": "▼", "key": "ArrowDown",  "hold": true,  "position": "right" },
+    { "label": "GO", "key": "Space",     "hold": false, "position": "bottom" },
+    { "label": "⏸", "key": "KeyP",       "hold": false, "position": "bottom" },
+    { "label": "↻", "key": "KeyR",       "hold": false, "position": "bottom" }
+  ],
+  "machines": [
+    {
+      "system": "GhostGame",
+      "title": "GhostGame — the mode scheduler with a push$/pop$ interrupt",
+      "blurb": "The global phase clock. Scatter and Chase alternate on a wave schedule ($.phase_index picks the duration); each phase's enter handler broadcasts the change to every ghost. A power pellet push$-es whichever phase is running and transitions to Frightened; when the frighten timer expires (or on frighten_expired), pop$ resumes the exact phase that was interrupted — two callers, two pop targets, and the interrupted phase's timer picks up where it left off."
+    },
+    {
+      "system": "Ghost",
+      "title": "Ghost — one system, four live instances",
+      "blurb": "Instantiated four times — @@Ghost(name, home_corner, target_kind) for Blinky, Pinky, Inky, and Clyde — so four independent compartment sets run the same generated machine. $Chase and $Scatter are children of the $OutOfPen parent (=> $^ forwards what they don't handle); a power pellet push$-es the current mode and enters $Frightened, and pop$ returns each ghost to whatever it was doing. Eaten ghosts detour through $Eaten back to $InPen. The panel highlights Blinky's instance."
+    },
+    {
+      "system": "GhostPen",
+      "title": "GhostPen — the release ladder",
+      "blurb": "A one-state timer machine: every release_interval seconds it offers the next penned ghost for release, and the scheduler's _try_release() consumes the offer. Deliberately boring — it exists to show a Frame system as a plain component beside the dramatic ones."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "Phaser · JS" }
+  ]
+}

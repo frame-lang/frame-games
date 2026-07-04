@@ -11,6 +11,18 @@ build/spike-rust/
 build/spike-cpp/
 build/spike-c/
 build/min-cpp/
+# Flame (Dart) spike: source is force-added (asteroids.fdart, app/lib/main.dart,
+# app/pubspec.*, app/web/); the Flutter project's generated + build artifacts
+# below are local only.
+build/spike-flame/
+# raylib (C) spike: source is force-added (raylib_host.c, shell.html); the
+# cloned raylib checkout + generated asteroids.c + emcc outputs are local only.
+build/spike-raylib/
+# Unity (C#) spike: force-add the source (asteroids.fcs, Assets/*.cs, .jslib,
+# SETUP.md); Unity's generated Library/, the WebGL build-out/, the generated
+# Assets/Asteroids.cs + Assets/Main.unity, and *.meta are local only.
+build/spike-unity/
+
 
 # Scratch copies of Godot projects used during the Web exports (build/godot.sh).
 build/godot-*/
@@ -26,3 +38,63 @@ games/asteroids/godot/scripts/asteroids.gd
 games/*/godot/.godot/
 games/*/godot/*.uid
 games/*/godot/**/*.uid
+# Ebiten (Go) spike: source is force-added (asteroids.fgo, main.go, go.mod/sum,
+# index.html); generated asteroids.go + the 15MB wasm are local only.
+build/spike-ebiten/
+# LÖVE (Lua) spike: source is force-added (asteroids.flua, main.lua, conf.lua,
+# shell.html, smoke.lua); generated asteroids.lua + the love.js web/ + game/
+# packaging trees are local only.
+build/spike-lua/
+# Pygame (Python) spike: source is force-added (asteroids.fpy, main.py,
+# smoke.py, default.tmpl, favicon.png); generated asteroids.py, the .venv and
+# pygbag app/ tree are local only.
+build/spike-pygame/
+# three.js (TypeScript) spike: source is force-added (asteroids.fts, main.ts,
+# smoke.ts, index.html, package.json); generated asteroids.ts + bundle.js and
+# node_modules are local only.
+build/spike-three/
+# ruby.wasm (Ruby) spike: source is force-added (asteroids.frb, main.rb,
+# smoke.rb, boot.js, index.html, package.json); generated asteroids.rb, the
+# esbuild bundles, the vendored ruby.wasm and node_modules are local only.
+build/spike-ruby/
+# php-wasm (PHP) spikes: source is force-added (asteroids.fphp, main.php,
+# smoke.php; web: boot.js, index.html, package.json); generated asteroids.php,
+# the vendored php-wasm runtime and probe scratch are local only.
+build/spike-php/
+build/spike-php-web/
+# TeaVM (Java) spikes: source is force-added (AsteroidsGame.fjava; web: pom.xml,
+# Main.java, index.html); generated AsteroidsGame.java, maven target/ and the
+# TeaVM dist/ are local only.
+build/spike-java/
+build/spike-java-web/
+# Kotlin/JS spikes: source is force-added (asteroids.fkt, smoke.kt; web:
+# *.gradle.kts, Main.kt, resources/index.html, kotlin-js-store/yarn.lock);
+# generated asteroids.kt, .gradle/ and build/ are local only.
+build/spike-kotlin/
+build/spike-kotlin-web/
+# Swift spike: source is force-added (AsteroidsGame.fswift, main.swift);
+# generated AsteroidsGame.swift is local only. (Browser build pending SwiftWasm.)
+build/spike-swift/
+__pycache__/
+# SwiftWasm spike: source is force-added (Package.swift, Package.resolved,
+# .swift-version pin, Sources/AsteroidsSwift/{host,main}.swift, boot.js,
+# shell.html, package.json); generated AsteroidsGame.swift, .build/, pkg/,
+# node_modules and the esbuild bundle are local only.
+build/spike-swift-web/
+# Pac-Man oracle spikes: source is force-added (.fts/.fgo/.fc + oracle drivers
+# + go.mod); generated FSMs, binaries and per-run traces are local only.
+build/spike-pacman-ts/
+build/spike-pacman-go/
+build/spike-pacman-c/
+build/spike-pacman-py/
+build/spike-pacman-rb/
+build/spike-pacman-php/
+build/spike-pacman-lua/
+build/spike-pacman-cs/
+build/spike-pacman-java/
+build/spike-pacman-rust/
+build/spike-pacman-kt/
+build/spike-pacman-swift/
+build/spike-pacman-dart/
+build/spike-pacman-gd/
+build/spike-pacman-cpp/

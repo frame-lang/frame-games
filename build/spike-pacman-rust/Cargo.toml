@@ -1,0 +1,8 @@
+[package]
+name = "pacman-oracle"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "pacman-oracle"
+path = "src/main.rs"

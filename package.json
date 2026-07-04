@@ -15,7 +15,15 @@
     "build:godot": "bash build/godot.sh",
     "build:godot-c": "bash build/godot-c.sh",
     "build:godot-rust": "bash build/godot-rust.sh",
-    "build:godot-cpp": "bash build/godot-cpp.sh"
+    "build:godot-cpp": "bash build/godot-cpp.sh",
+    "build:flame": "bash build/flame.sh",
+    "build:raylib": "bash build/raylib.sh",
+    "build:unity": "bash build/unity.sh",
+    "build:three": "bash build/three.sh",
+    "build:ruby": "bash build/ruby.sh",
+    "build:java": "bash build/java.sh",
+    "build:kotlin": "bash build/kotlin.sh",
+    "build:swift": "bash build/swift.sh"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
