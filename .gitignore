@@ -101,3 +101,6 @@ build/spike-pacman-cpp/
 build/spike-shooter-cs/
 build/spike-shooter-java/
 build/spike-shooter-c/
+build/spike-shooter-kt/
+build/spike-shooter-swift/
+build/spike-shooter-dart/

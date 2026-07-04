@@ -1,0 +1,726 @@
+@@[target("swift")]
+
+// Side-scrolling shooter — Swift port of the canonical capstone controller
+// (games/shooter/src/shooter.fjs, which mirrors the Godot ch07 reference).
+// Same four systems (Player / Enemy / Boss / Shooter), states, transitions,
+// the parameterized Enemy(kind, hp, fire_rate, points), the three-phase Boss
+// HSM (phase parents own hit()/thresholds; idle/fire leaves), the owned
+// player/boss + driver-populated enemies list, and the push$/pop$ pause.
+// Bodies are native Swift (no-paren if/while, [Enemy] reference array)
+// doubles for all timers so the oracle's dt=1/64 arithmetic matches the JS
+// baseline bit-for-bit. Systems are classes: removing from the array drops
+// the last reference — ARC deinit is the Swift teardown counterpart.
+
+// ------------------------------------------------------------ Player
+@@system Player {
+
+    interface:
+        tick(dt: Double)
+        hit()
+        respawn()
+        can_fire(): Bool
+        can_be_hit(): Bool
+        is_visible(): Bool
+        get_state(): String
+        get_lives(): Int
+
+    machine:
+        $Alive {
+            hit() { -> $Exploding }
+
+            can_fire(): Bool    { @@:(true) }
+            can_be_hit(): Bool  { @@:(true) }
+            is_visible(): Bool  { @@:(true) }
+            get_state(): String { @@:("alive") }
+            get_lives(): Int    { @@:(@@:self.lives) }
+        }
+
+        $Exploding {
+            $.timer: Double = 0.0
+            $.duration: Double = 1.0
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    @@:self.lives = @@:self.lives - 1
+                    if @@:self.lives <= 0 {
+                        -> $Dead
+                    } else {
+                        -> $Invulnerable
+                    }
+                }
+            }
+
+            can_fire(): Bool    { @@:(false) }
+            can_be_hit(): Bool  { @@:(false) }
+            is_visible(): Bool  { @@:(true) }
+            get_state(): String { @@:("exploding") }
+            get_lives(): Int    { @@:(@@:self.lives) }
+        }
+
+        $Invulnerable {
+            $.timer: Double = 0.0
+            $.duration: Double = 2.0
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> $Alive
+                }
+            }
+
+            can_fire(): Bool    { @@:(true) }
+            can_be_hit(): Bool  { @@:(false) }
+            is_visible(): Bool  { @@:(true) }
+            get_state(): String { @@:("invulnerable") }
+            get_lives(): Int    { @@:(@@:self.lives) }
+        }
+
+        $Dead {
+            respawn() {
+                @@:self.lives = @@:self.starting_lives
+                -> $Alive
+            }
+
+            can_fire(): Bool    { @@:(false) }
+            can_be_hit(): Bool  { @@:(false) }
+            is_visible(): Bool  { @@:(false) }
+            get_state(): String { @@:("dead") }
+            get_lives(): Int    { @@:(0) }
+        }
+
+    domain:
+        lives: Int = 3
+        starting_lives: Int = 3
+}
+
+// ------------------------------------------------------------ Enemy
+@@system Enemy(kind: Int, hp: Int, fire_rate: Double, points: Int) {
+
+    interface:
+        tick(dt: Double)
+        hit(damage: Int)
+        get_state(): String
+        get_kind(): Int
+        get_hp(): Int
+        get_points(): Int
+        wants_to_fire(): Bool
+        consume_fire()
+        is_alive(): Bool
+        is_cleanup(): Bool
+
+    machine:
+        $Spawning {
+            $.timer: Double = 0.0
+            $.duration: Double = 0.5
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> $Active
+                }
+            }
+
+            hit(damage: Int) {
+            }
+
+            get_state(): String { @@:("spawning") }
+            get_kind(): Int     { @@:(@@:self.ekind) }
+            get_hp(): Int       { @@:(@@:self.hp_remaining) }
+            get_points(): Int   { @@:(@@:self.pts) }
+            wants_to_fire(): Bool { @@:(false) }
+            consume_fire()      { }
+            is_alive(): Bool    { @@:(true) }
+            is_cleanup(): Bool  { @@:(false) }
+        }
+
+        $Active {
+            $.fire_timer: Double = 0.0
+
+            tick(dt: Double) {
+                if @@:self.rate > 0.0 {
+                    $.fire_timer = $.fire_timer + dt
+                }
+            }
+
+            hit(damage: Int) {
+                @@:self.hp_remaining = @@:self.hp_remaining - damage
+                if @@:self.hp_remaining <= 0 {
+                    -> $Dying
+                }
+            }
+
+            get_state(): String { @@:("active") }
+            get_kind(): Int     { @@:(@@:self.ekind) }
+            get_hp(): Int       { @@:(@@:self.hp_remaining) }
+            get_points(): Int   { @@:(@@:self.pts) }
+            wants_to_fire(): Bool {
+                if @@:self.rate <= 0.0 {
+                    @@:return(false)
+                }
+                @@:($.fire_timer >= @@:self.rate)
+            }
+            consume_fire()      { $.fire_timer = 0.0; }
+            is_alive(): Bool    { @@:(true) }
+            is_cleanup(): Bool  { @@:(false) }
+        }
+
+        $Dying {
+            $.timer: Double = 0.0
+            $.duration: Double = 0.4
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> $Gone
+                }
+            }
+
+            hit(damage: Int) {
+            }
+
+            get_state(): String { @@:("dying") }
+            get_kind(): Int     { @@:(@@:self.ekind) }
+            get_hp(): Int       { @@:(0) }
+            get_points(): Int   { @@:(@@:self.pts) }
+            wants_to_fire(): Bool { @@:(false) }
+            consume_fire()      { }
+            is_alive(): Bool    { @@:(false) }
+            is_cleanup(): Bool  { @@:(false) }
+        }
+
+        $Gone {
+            get_state(): String { @@:("gone") }
+            get_kind(): Int     { @@:(@@:self.ekind) }
+            get_hp(): Int       { @@:(0) }
+            get_points(): Int   { @@:(@@:self.pts) }
+            wants_to_fire(): Bool { @@:(false) }
+            consume_fire()      { }
+            is_alive(): Bool    { @@:(false) }
+            is_cleanup(): Bool  { @@:(true) }
+        }
+
+    domain:
+        ekind: Int = kind
+        hp_remaining: Int = hp
+        rate: Double = fire_rate
+        pts: Int = points
+}
+
+// ------------------------------------------------------------ Boss
+@@system Boss {
+
+    interface:
+        tick(dt: Double)
+        hit(damage: Int)
+        get_phase(): Int
+        get_hp(): Int
+        get_hp_fraction(): Double
+        get_state(): String
+        is_alive(): Bool
+        is_dying(): Bool
+        is_gone(): Bool
+        wants_to_fire_single(): Bool
+        wants_to_fire_spread(): Bool
+        wants_to_fire_spray(): Bool
+        consume_fire()
+
+    machine:
+        $P1Idle => $PhaseOne {
+            $.timer: Double = 0.0
+            $.idle_duration: Double = 1.8
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration {
+                    -> $P1Firing
+                }
+            }
+
+            get_state(): String { @@:("p1_idle") }
+            => $^
+        }
+
+        $PhaseOne {
+            hit(damage: Int) {
+                @@:self.hp = @@:self.hp - damage
+                if Double(@@:self.hp) <= Double(@@:self.hp_start) * 0.66 {
+                    -> $P2Idle
+                } else if @@:self.hp <= 0 {
+                    -> $Dying
+                }
+            }
+
+            get_phase(): Int        { @@:(1) }
+            get_hp(): Int           { @@:(@@:self.hp) }
+            get_hp_fraction(): Double { @@:(Double(@@:self.hp) / Double(@@:self.hp_start)) }
+            get_state(): String     { @@:("phase_one") }
+            is_alive(): Bool        { @@:(true) }
+            is_dying(): Bool        { @@:(false) }
+            is_gone(): Bool         { @@:(false) }
+            wants_to_fire_single(): Bool  { @@:(false) }
+            wants_to_fire_spread(): Bool  { @@:(false) }
+            wants_to_fire_spray(): Bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $P1Firing => $PhaseOne {
+            $.timer: Double = 0.0
+            $.duration: Double = 0.4
+            $.fired: Bool = false
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> $P1Idle
+                }
+            }
+
+            wants_to_fire_single(): Bool {
+                if $.fired {
+                    @@:return(false)
+                }
+                @@:(true)
+            }
+            consume_fire() { $.fired = true; }
+
+            get_state(): String { @@:("p1_firing") }
+            => $^
+        }
+
+        $PhaseTwo {
+            hit(damage: Int) {
+                @@:self.hp = @@:self.hp - damage
+                if Double(@@:self.hp) <= Double(@@:self.hp_start) * 0.33 {
+                    -> $P3Idle
+                } else if @@:self.hp <= 0 {
+                    -> $Dying
+                }
+            }
+
+            get_phase(): Int        { @@:(2) }
+            get_hp(): Int           { @@:(@@:self.hp) }
+            get_hp_fraction(): Double { @@:(Double(@@:self.hp) / Double(@@:self.hp_start)) }
+            get_state(): String     { @@:("phase_two") }
+            is_alive(): Bool        { @@:(true) }
+            is_dying(): Bool        { @@:(false) }
+            is_gone(): Bool         { @@:(false) }
+            wants_to_fire_single(): Bool  { @@:(false) }
+            wants_to_fire_spread(): Bool  { @@:(false) }
+            wants_to_fire_spray(): Bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $P2Idle => $PhaseTwo {
+            $.timer: Double = 0.0
+            $.idle_duration: Double = 1.3
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration {
+                    -> $P2Spread
+                }
+            }
+
+            get_state(): String { @@:("p2_idle") }
+            => $^
+        }
+
+        $P2Spread => $PhaseTwo {
+            $.timer: Double = 0.0
+            $.duration: Double = 0.5
+            $.fired: Bool = false
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> $P2Idle
+                }
+            }
+
+            wants_to_fire_spread(): Bool {
+                if $.fired {
+                    @@:return(false)
+                }
+                @@:(true)
+            }
+            consume_fire() { $.fired = true; }
+
+            get_state(): String { @@:("p2_spread") }
+            => $^
+        }
+
+        $PhaseThree {
+            hit(damage: Int) {
+                @@:self.hp = @@:self.hp - damage
+                if @@:self.hp <= 0 {
+                    -> $Dying
+                }
+            }
+
+            get_phase(): Int        { @@:(3) }
+            get_hp(): Int           { @@:(@@:self.hp) }
+            get_hp_fraction(): Double { @@:(Double(@@:self.hp) / Double(@@:self.hp_start)) }
+            get_state(): String     { @@:("phase_three") }
+            is_alive(): Bool        { @@:(true) }
+            is_dying(): Bool        { @@:(false) }
+            is_gone(): Bool         { @@:(false) }
+            wants_to_fire_single(): Bool  { @@:(false) }
+            wants_to_fire_spread(): Bool  { @@:(false) }
+            wants_to_fire_spray(): Bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $P3Idle => $PhaseThree {
+            $.timer: Double = 0.0
+            $.idle_duration: Double = 0.6
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration {
+                    -> $P3Spray
+                }
+            }
+
+            get_state(): String { @@:("p3_idle") }
+            => $^
+        }
+
+        $P3Spray => $PhaseThree {
+            $.timer: Double = 0.0
+            $.duration: Double = 0.8
+            $.fire_accumulator: Double = 0.0
+            $.fire_ready: Bool = false
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                $.fire_accumulator = $.fire_accumulator + dt
+                if $.fire_accumulator >= 0.12 {
+                    $.fire_accumulator = 0.0
+                    $.fire_ready = true
+                }
+                if $.timer >= $.duration {
+                    -> $P3Idle
+                }
+            }
+
+            wants_to_fire_spray(): Bool {
+                @@:($.fire_ready)
+            }
+            consume_fire() { $.fire_ready = false; }
+
+            get_state(): String { @@:("p3_spray") }
+            => $^
+        }
+
+        $Dying {
+            $.timer: Double = 0.0
+            $.duration: Double = 2.5
+
+            tick(dt: Double) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    -> $Gone
+                }
+            }
+
+            hit(damage: Int) {
+            }
+
+            get_phase(): Int        { @@:(0) }
+            get_hp(): Int           { @@:(0) }
+            get_hp_fraction(): Double { @@:(0.0) }
+            get_state(): String     { @@:("dying") }
+            is_alive(): Bool        { @@:(false) }
+            is_dying(): Bool        { @@:(true) }
+            is_gone(): Bool         { @@:(false) }
+            wants_to_fire_single(): Bool  { @@:(false) }
+            wants_to_fire_spread(): Bool  { @@:(false) }
+            wants_to_fire_spray(): Bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        $Gone {
+            get_phase(): Int        { @@:(0) }
+            get_hp(): Int           { @@:(0) }
+            get_hp_fraction(): Double { @@:(0.0) }
+            get_state(): String     { @@:("gone") }
+            is_alive(): Bool        { @@:(false) }
+            is_dying(): Bool        { @@:(false) }
+            is_gone(): Bool         { @@:(true) }
+            wants_to_fire_single(): Bool  { @@:(false) }
+            wants_to_fire_spread(): Bool  { @@:(false) }
+            wants_to_fire_spray(): Bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+    domain:
+        hp: Int = 90
+        hp_start: Int = 90
+}
+
+// ------------------------------------------------------------ Shooter
+@@[main]
+@@system Shooter {
+
+    operations:
+        get_current_state_name(): String { @@:(@@:system.state.name) }
+
+    interface:
+        start()
+        restart()
+        tick(dt: Double)
+
+        add_enemy(e: Enemy)
+        clear_dead_enemies()
+
+        player_hit()
+        enemy_hit(index: Int, damage: Int): Bool
+        boss_hit(damage: Int): Bool
+
+        get_state(): String
+        get_score(): Int
+        get_lives(): Int
+        enemy_count(): Int
+        should_spawn_wave(): Bool
+        consume_wave()
+        should_spawn_boss(): Bool
+        consume_boss_spawn()
+
+        pause()
+        resume()
+
+    machine:
+        $Attract {
+            $>() {
+                @@:self.score = 0
+                @@:self.waves_spawned = 0
+                @@:self.wave_timer = 0.0
+                @@:self.boss_spawn_pending = false
+            }
+
+            start() {
+                @@:self.player.respawn()
+                -> $Playing
+            }
+
+            get_state(): String         { @@:("attract") }
+            get_score(): Int            { @@:(@@:self.score) }
+            get_lives(): Int            { @@:(@@:self.player.get_lives()) }
+            enemy_count(): Int          { @@:(@@:self.enemies.count) }
+            should_spawn_wave(): Bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): Bool   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        $Playing {
+            tick(dt: Double) {
+                @@:self.player.tick(dt)
+                @@:self._tick_enemies(dt)
+                @@:self.wave_timer = @@:self.wave_timer + dt
+                if @@:self.player.get_state() == "dead" {
+                    -> $GameOver
+                }
+
+                if @@:self.waves_spawned >= @@:self.waves_before_boss {
+                    -> $BossFight
+                }
+            }
+
+            add_enemy(e: Enemy) {
+                @@:self.enemies.append(e)
+            }
+
+            clear_dead_enemies() {
+                @@:self._cleanup_enemies()
+            }
+
+            player_hit() {
+                if @@:self.player.can_be_hit() {
+                    @@:self.player.hit()
+                }
+            }
+
+            enemy_hit(index: Int, damage: Int): Bool {
+                if index < 0 || index >= @@:self.enemies.count {
+                    @@:return(false)
+                }
+                @@:self.enemies[index].hit(damage)
+                if !@@:self.enemies[index].is_alive() {
+                    @@:self.score = @@:self.score + @@:self.enemies[index].get_points()
+                    @@:return(true)
+                }
+                @@:(false)
+            }
+
+            boss_hit(damage: Int): Bool {
+                @@:(false)
+            }
+
+            should_spawn_wave(): Bool {
+                @@:(@@:self.wave_timer >= @@:self.wave_interval)
+            }
+
+            consume_wave() {
+                @@:self.wave_timer = 0.0
+                @@:self.waves_spawned = @@:self.waves_spawned + 1
+            }
+
+            should_spawn_boss(): Bool { @@:(false) }
+            consume_boss_spawn()      { }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state(): String { @@:("playing") }
+            get_score(): Int    { @@:(@@:self.score) }
+            get_lives(): Int    { @@:(@@:self.player.get_lives()) }
+            enemy_count(): Int  { @@:(@@:self.enemies.count) }
+        }
+
+        $BossFight {
+            $>() {
+                @@:self.boss_spawn_pending = true
+            }
+
+            tick(dt: Double) {
+                @@:self.player.tick(dt)
+                @@:self._tick_enemies(dt)
+                @@:self.boss.tick(dt)
+                if @@:self.player.get_state() == "dead" {
+                    -> $GameOver
+                }
+
+                if @@:self.boss.is_gone() {
+                    -> $Victory
+                }
+            }
+
+            add_enemy(e: Enemy) {
+                @@:self.enemies.append(e)
+            }
+
+            clear_dead_enemies() {
+                @@:self._cleanup_enemies()
+            }
+
+            player_hit() {
+                if @@:self.player.can_be_hit() {
+                    @@:self.player.hit()
+                }
+            }
+
+            enemy_hit(index: Int, damage: Int): Bool {
+                if index < 0 || index >= @@:self.enemies.count {
+                    @@:return(false)
+                }
+                @@:self.enemies[index].hit(damage)
+                if !@@:self.enemies[index].is_alive() {
+                    @@:self.score = @@:self.score + @@:self.enemies[index].get_points()
+                    @@:return(true)
+                }
+                @@:(false)
+            }
+
+            boss_hit(damage: Int): Bool {
+                @@:self.boss.hit(damage)
+                if @@:self.boss.is_dying() || @@:self.boss.is_gone() {
+                    @@:(true)
+                } else {
+                    @@:(false)
+                }
+            }
+
+            should_spawn_wave(): Bool   { @@:(false) }
+            consume_wave()              { }
+
+            should_spawn_boss(): Bool   { @@:(@@:self.boss_spawn_pending) }
+            consume_boss_spawn()        { @@:self.boss_spawn_pending = false; }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state(): String { @@:("boss_fight") }
+            get_score(): Int    { @@:(@@:self.score) }
+            get_lives(): Int    { @@:(@@:self.player.get_lives()) }
+            enemy_count(): Int  { @@:(@@:self.enemies.count) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state(): String         { @@:("paused") }
+            get_score(): Int            { @@:(@@:self.score) }
+            get_lives(): Int            { @@:(@@:self.player.get_lives()) }
+            enemy_count(): Int          { @@:(@@:self.enemies.count) }
+            should_spawn_wave(): Bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): Bool   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        $Victory {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String         { @@:("victory") }
+            get_score(): Int            { @@:(@@:self.score) }
+            get_lives(): Int            { @@:(@@:self.player.get_lives()) }
+            enemy_count(): Int          { @@:(@@:self.enemies.count) }
+            should_spawn_wave(): Bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): Bool   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String         { @@:("game_over") }
+            get_score(): Int            { @@:(@@:self.score) }
+            get_lives(): Int            { @@:(@@:self.player.get_lives()) }
+            enemy_count(): Int          { @@:(@@:self.enemies.count) }
+            should_spawn_wave(): Bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): Bool   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+    actions:
+        _tick_enemies(dt: Double) {
+            var i: Int = 0
+            while i < @@:self.enemies.count {
+                @@:self.enemies[i].tick(dt)
+                i = i + 1
+            }
+        }
+
+        _cleanup_enemies() {
+            var i: Int = @@:self.enemies.count - 1
+            while i >= 0 {
+                if @@:self.enemies[i].is_cleanup() {
+                    @@:self.enemies.remove(at: i)
+                }
+                i = i - 1
+            }
+        }
+
+    domain:
+        score: Int = 0
+        wave_timer: Double = 0.0
+        wave_interval: Double = 2.0
+        waves_spawned: Int = 0
+        waves_before_boss: Int = 10
+        boss_spawn_pending: Bool = false
+        player: Player = @@Player()
+        boss: Boss = @@Boss()
+        enemies: [Enemy] = []
+}
