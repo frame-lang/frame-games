@@ -1,0 +1,303 @@
+@@[target("ruby")]
+
+# Stealth — guard agent AI, Ruby port of the canonical controller
+# (games/stealth/src/stealth.fjs). Native Ruby bodies (if..end, Math.hypot,
+# Hash Vector2); the @@[persist]/@@[save]/@@[load] contract is kept.
+
+@@[persist(string)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Guard {
+
+    interface:
+        init(patrol, speed)
+        tick(dt, current_pos)
+        spot_player(at)
+        hear_sound(at)
+        touched_player()
+        get_state()
+        get_target()
+        get_last_known()
+        is_aware()
+        is_alerted()
+        should_move()
+
+    machine:
+        $Idle {
+            init(patrol, speed) {
+                self.patrol = patrol
+                self.speed = speed
+                self.next_wp = 0
+                if patrol.length > 0
+                    self.target = patrol[0]
+                end
+                -> $Patrolling
+            }
+
+            tick(dt, current_pos) {
+            }
+
+            get_state()         { @@:("idle") }
+            get_target()        { @@:(self.target) }
+            get_last_known()    { @@:(self.last_known) }
+            is_aware()          { @@:(false) }
+            is_alerted()        { @@:(false) }
+            should_move()       { @@:(false) }
+        }
+
+        $Aware {
+            spot_player(at) {
+                self.last_known = at
+                -> $Alerted
+            }
+
+            touched_player() {
+                -> $Engaged
+            }
+
+            get_state()         { @@:("aware") }
+            get_target()        { @@:(self.target) }
+            get_last_known()    { @@:(self.last_known) }
+            is_aware()          { @@:(true) }
+            is_alerted()        { @@:(false) }
+            should_move()       { @@:(true) }
+        }
+
+        $Patrolling => $Aware {
+            tick(dt, current_pos) {
+                if self.patrol.length == 0
+                    return
+                end
+                d = Math.hypot(current_pos["x"] - self.target["x"], current_pos["y"] - self.target["y"])
+                if d < self.ARRIVAL_RADIUS
+                    self.next_wp = self.next_wp + 1
+                    if self.next_wp >= self.patrol.length
+                        self.next_wp = 0
+                    end
+                    self.target = self.patrol[self.next_wp]
+                end
+            }
+
+            hear_sound(at) {
+                push$
+                self.last_known = at
+                -> $Investigating
+            }
+
+            get_state()         { @@:("patrolling") }
+            is_aware()          { @@:(false) }
+            should_move()       { @@:(true) }
+            => $^
+        }
+
+        $Investigating => $Aware {
+            $.timer = 0.0
+
+            tick(dt, current_pos) {
+                $.timer = $.timer + dt
+                if $.timer >= self.INVESTIGATE_DURATION
+                    -> pop$
+                end
+            }
+
+            get_state() { @@:("investigating") }
+            should_move() { @@:(false) }
+            => $^
+        }
+
+        $Alerted => $Aware {
+            $.chase_timer = 0.0
+
+            spot_player(at) {
+                self.last_known = at
+                $.chase_timer = 0.0
+            }
+
+            tick(dt, current_pos) {
+                self.target = self.last_known
+                $.chase_timer = $.chase_timer + dt
+                d = Math.hypot(current_pos["x"] - self.last_known["x"], current_pos["y"] - self.last_known["y"])
+                if d < self.ARRIVAL_RADIUS
+                    -> $Searching
+                elsif $.chase_timer >= self.CHASE_TIMEOUT
+                    -> $Searching
+                end
+            }
+
+            get_state() { @@:("alerted") }
+            is_alerted() { @@:(true) }
+            should_move() { @@:(true) }
+            => $^
+        }
+
+        $Searching => $Aware {
+            $.timer = 0.0
+
+            tick(dt, current_pos) {
+                $.timer = $.timer + dt
+                if $.timer >= self.SEARCH_DURATION
+                    self._resume_patrol(current_pos)
+                    -> $Patrolling
+                end
+            }
+
+            get_state() { @@:("searching") }
+            should_move() { @@:(false) }
+            => $^
+        }
+
+        $Engaged {
+            tick(dt, current_pos) {
+            }
+
+            get_state()         { @@:("engaged") }
+            get_target()        { @@:(self.target) }
+            get_last_known()    { @@:(self.last_known) }
+            is_aware()          { @@:(true) }
+            is_alerted()        { @@:(true) }
+            should_move()       { @@:(false) }
+        }
+
+    actions:
+        _resume_patrol(current_pos) {
+            if self.patrol.length == 0
+                return
+            end
+            best_i = 0
+            best_d = Math.hypot(current_pos["x"] - self.patrol[0]["x"], current_pos["y"] - self.patrol[0]["y"])
+            i = 1
+            while i < self.patrol.length
+                d = Math.hypot(current_pos["x"] - self.patrol[i]["x"], current_pos["y"] - self.patrol[i]["y"])
+                if d < best_d
+                    best_d = d
+                    best_i = i
+                end
+                i = i + 1
+            end
+            self.next_wp = best_i
+            self.target = self.patrol[best_i]
+        }
+
+    domain:
+        patrol = []
+        next_wp = 0
+        target = { "x" => 0.0, "y" => 0.0 }
+        last_known = { "x" => 0.0, "y" => 0.0 }
+        speed = 60.0
+        ARRIVAL_RADIUS = 12.0
+        INVESTIGATE_DURATION = 1.5
+        SEARCH_DURATION = 3.0
+        CHASE_TIMEOUT = 4.0
+}
+
+@@[main]
+@@[persist(string)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Stealth {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+
+    interface:
+        start(p1, p2, p3)
+        restart()
+        pause()
+        resume()
+        tick(dt, pos1, pos2, pos3)
+        guard_caught_player(i)
+        player_at_exit()
+        get_state()
+        get_elapsed()
+        get_caught_by()
+
+    machine:
+        $Attract {
+            $>() {
+                self.elapsed = 0.0
+                self.caught_by = -1
+            }
+
+            start(p1, p2, p3) {
+                self.guard1.init(p1, self.PATROL_SPEED)
+                self.guard2.init(p2, self.PATROL_SPEED)
+                self.guard3.init(p3, self.PATROL_SPEED)
+                -> $Playing
+            }
+
+            get_state()     { @@:("attract") }
+            get_elapsed()   { @@:(0.0) }
+            get_caught_by() { @@:(-1) }
+        }
+
+        $Playing {
+            tick(dt, pos1, pos2, pos3) {
+                self.elapsed = self.elapsed + dt
+                self.guard1.tick(dt, pos1)
+                self.guard2.tick(dt, pos2)
+                self.guard3.tick(dt, pos3)
+            }
+
+            guard_caught_player(i) {
+                self.caught_by = i
+                if i == 0
+                    self.guard1.touched_player()
+                elsif i == 1
+                    self.guard2.touched_player()
+                elsif i == 2
+                    self.guard3.touched_player()
+                end
+                -> $Caught
+            }
+
+            player_at_exit() {
+                -> $Escaped
+            }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state()     { @@:("playing") }
+            get_elapsed()   { @@:(self.elapsed) }
+            get_caught_by() { @@:(self.caught_by) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state()     { @@:("paused") }
+            get_elapsed()   { @@:(self.elapsed) }
+            get_caught_by() { @@:(self.caught_by) }
+        }
+
+        $Caught {
+            restart() {
+                -> $Attract
+            }
+
+            get_state()     { @@:("caught") }
+            get_elapsed()   { @@:(self.elapsed) }
+            get_caught_by() { @@:(self.caught_by) }
+        }
+
+        $Escaped {
+            restart() {
+                -> $Attract
+            }
+
+            get_state()     { @@:("escaped") }
+            get_elapsed()   { @@:(self.elapsed) }
+            get_caught_by() { @@:(-1) }
+        }
+
+    domain:
+        guard1 = @@Guard()
+        guard2 = @@Guard()
+        guard3 = @@Guard()
+        elapsed = 0.0
+        caught_by = -1
+        PATROL_SPEED = 95.0
+}

@@ -1,0 +1,311 @@
+@@[target("php")]
+
+// Stealth — guard agent AI as two composed state machines.
+// PHP native-passthrough port of the canonical stealth FSM.
+// Mirrors the JS reference (frame-games/games/stealth/src/stealth.fjs)
+// exactly — same two systems (Guard / Stealth), states, transitions,
+// the $Aware HSM parent, the push$/pop$ investigate-then-resume
+// subroutine, three owned Guard instances, and the Stealth game flow
+// $Attract -> $Playing -> $Caught/$Escaped plus the push$/pop$ pause.
+// Only action bodies differ (PHP host code): Vector2 becomes a plain
+// ["x" => .., "y" => ..] array, distance_to becomes hypot, Array is a
+// PHP list. The @@[persist]/@@[save]/@@[load] contract is kept for
+// save parity (blob type `string`).
+
+@@[persist(string)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Guard {
+
+    interface:
+        init(patrol, speed)
+        tick(dt, current_pos)
+        spot_player(at)
+        hear_sound(at)
+        touched_player()
+        get_state()
+        get_target()
+        get_last_known()
+        is_aware()
+        is_alerted()
+        should_move()
+
+    machine:
+        $Idle {
+            init(patrol, speed) {
+                $this->patrol = $patrol;
+                $this->speed = $speed;
+                $this->next_wp = 0;
+                if (count($patrol) > 0) {
+                    $this->target = $patrol[0];
+                }
+                -> $Patrolling
+            }
+
+            tick(dt, current_pos) {
+            }
+
+            get_state()         { @@:("idle") }
+            get_target()        { @@:($this->target) }
+            get_last_known()    { @@:($this->last_known) }
+            is_aware()          { @@:(false) }
+            is_alerted()        { @@:(false) }
+            should_move()       { @@:(false) }
+        }
+
+        $Aware {
+            spot_player(at) {
+                $this->last_known = $at;
+                -> $Alerted
+            }
+
+            touched_player() {
+                -> $Engaged
+            }
+
+            get_state()         { @@:("aware") }
+            get_target()        { @@:($this->target) }
+            get_last_known()    { @@:($this->last_known) }
+            is_aware()          { @@:(true) }
+            is_alerted()        { @@:(false) }
+            should_move()       { @@:(true) }
+        }
+
+        $Patrolling => $Aware {
+            tick(dt, current_pos) {
+                if (count($this->patrol) == 0) {
+                    return;
+                }
+                $d = hypot($current_pos["x"] - $this->target["x"], $current_pos["y"] - $this->target["y"]);
+                if ($d < $this->ARRIVAL_RADIUS) {
+                    $this->next_wp = $this->next_wp + 1;
+                    if ($this->next_wp >= count($this->patrol)) {
+                        $this->next_wp = 0;
+                    }
+                    $this->target = $this->patrol[$this->next_wp];
+                }
+            }
+
+            hear_sound(at) {
+                push$
+                $this->last_known = $at;
+                -> $Investigating
+            }
+
+            get_state()         { @@:("patrolling") }
+            is_aware()          { @@:(false) }
+            should_move()       { @@:(true) }
+            => $^
+        }
+
+        $Investigating => $Aware {
+            $.timer = 0.0
+
+            tick(dt, current_pos) {
+                $.timer = $.timer + $dt;
+                if ($.timer >= $this->INVESTIGATE_DURATION) {
+                    -> pop$
+                }
+            }
+
+            get_state() { @@:("investigating") }
+            should_move() { @@:(false) }
+            => $^
+        }
+
+        $Alerted => $Aware {
+            $.chase_timer = 0.0
+
+            spot_player(at) {
+                $this->last_known = $at;
+                $.chase_timer = 0.0;
+            }
+
+            tick(dt, current_pos) {
+                $this->target = $this->last_known;
+                $.chase_timer = $.chase_timer + $dt;
+                $d = hypot($current_pos["x"] - $this->last_known["x"], $current_pos["y"] - $this->last_known["y"]);
+                if ($d < $this->ARRIVAL_RADIUS) {
+                    -> $Searching
+                } else if ($.chase_timer >= $this->CHASE_TIMEOUT) {
+                    -> $Searching
+                }
+            }
+
+            get_state() { @@:("alerted") }
+            is_alerted()  { @@:(true) }
+            should_move() { @@:(true) }
+            => $^
+        }
+
+        $Searching => $Aware {
+            $.timer = 0.0
+
+            tick(dt, current_pos) {
+                $.timer = $.timer + $dt;
+                if ($.timer >= $this->SEARCH_DURATION) {
+                    $this->_resume_patrol($current_pos);
+                    -> $Patrolling
+                }
+            }
+
+            get_state() { @@:("searching") }
+            should_move() { @@:(false) }
+            => $^
+        }
+
+        $Engaged {
+            tick(dt, current_pos) {
+            }
+
+            get_state()         { @@:("engaged") }
+            get_target()        { @@:($this->target) }
+            get_last_known()    { @@:($this->last_known) }
+            is_aware()          { @@:(true) }
+            is_alerted()        { @@:(true) }
+            should_move()       { @@:(false) }
+        }
+
+    actions:
+        _resume_patrol(current_pos) {
+            if (count($this->patrol) == 0) {
+                return;
+            }
+            $best_i = 0;
+            $best_d = hypot($current_pos["x"] - $this->patrol[0]["x"], $current_pos["y"] - $this->patrol[0]["y"]);
+            $i = 1;
+            while ($i < count($this->patrol)) {
+                $d = hypot($current_pos["x"] - $this->patrol[$i]["x"], $current_pos["y"] - $this->patrol[$i]["y"]);
+                if ($d < $best_d) {
+                    $best_d = $d;
+                    $best_i = $i;
+                }
+                $i = $i + 1;
+            }
+            $this->next_wp = $best_i;
+            $this->target = $this->patrol[$best_i];
+        }
+
+    domain:
+        patrol = []
+        next_wp = 0
+        target = ["x" => 0.0, "y" => 0.0]
+        last_known = ["x" => 0.0, "y" => 0.0]
+        speed = 60.0
+        ARRIVAL_RADIUS = 12.0
+        INVESTIGATE_DURATION = 1.5
+        SEARCH_DURATION = 3.0
+        CHASE_TIMEOUT = 4.0
+}
+
+@@[main]
+@@[persist(string)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Stealth {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+
+    interface:
+        start(p1, p2, p3)
+        restart()
+        pause()
+        resume()
+        tick(dt, pos1, pos2, pos3)
+        guard_caught_player(i)
+        player_at_exit()
+        get_state()
+        get_elapsed()
+        get_caught_by()
+
+    machine:
+        $Attract {
+            $>() {
+                $this->elapsed = 0.0;
+                $this->caught_by = -1;
+            }
+
+            start(p1, p2, p3) {
+                $this->guard1->init($p1, $this->PATROL_SPEED);
+                $this->guard2->init($p2, $this->PATROL_SPEED);
+                $this->guard3->init($p3, $this->PATROL_SPEED);
+                -> $Playing
+            }
+
+            get_state()     { @@:("attract") }
+            get_elapsed()   { @@:(0.0) }
+            get_caught_by() { @@:(-1) }
+        }
+
+        $Playing {
+            tick(dt, pos1, pos2, pos3) {
+                $this->elapsed = $this->elapsed + $dt;
+                $this->guard1->tick($dt, $pos1);
+                $this->guard2->tick($dt, $pos2);
+                $this->guard3->tick($dt, $pos3);
+            }
+
+            guard_caught_player(i) {
+                $this->caught_by = $i;
+                if ($i == 0) {
+                    $this->guard1->touched_player();
+                } else if ($i == 1) {
+                    $this->guard2->touched_player();
+                } else if ($i == 2) {
+                    $this->guard3->touched_player();
+                }
+                -> $Caught
+            }
+
+            player_at_exit() {
+                -> $Escaped
+            }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state()     { @@:("playing") }
+            get_elapsed()   { @@:($this->elapsed) }
+            get_caught_by() { @@:($this->caught_by) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state()     { @@:("paused") }
+            get_elapsed()   { @@:($this->elapsed) }
+            get_caught_by() { @@:($this->caught_by) }
+        }
+
+        $Caught {
+            restart() {
+                -> $Attract
+            }
+
+            get_state()     { @@:("caught") }
+            get_elapsed()   { @@:($this->elapsed) }
+            get_caught_by() { @@:($this->caught_by) }
+        }
+
+        $Escaped {
+            restart() {
+                -> $Attract
+            }
+
+            get_state()     { @@:("escaped") }
+            get_elapsed()   { @@:($this->elapsed) }
+            get_caught_by() { @@:(-1) }
+        }
+
+    domain:
+        guard1 = @@Guard()
+        guard2 = @@Guard()
+        guard3 = @@Guard()
+        elapsed = 0.0
+        caught_by = -1
+        PATROL_SPEED = 95.0
+}
