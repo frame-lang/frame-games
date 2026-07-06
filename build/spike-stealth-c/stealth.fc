@@ -1,0 +1,363 @@
+@@[target("c")]
+
+// Stealth — guard agent AI, C port of the canonical controller
+// (games/stealth/src/stealth.fjs). Frame is type-ignorant: every type here is
+// a native C string framec passes through verbatim. patrol is a self-contained
+// fixed Vector2 array + count (no Frame `list` — C has none); the guards are
+// owned Guard* children; @@[persist] uses the D12 hooks below for the native
+// Vector2 / Vector2[8] fields (framec mangles the type string and calls them).
+
+#include <math.h>
+#include <string.h>
+#include <stdbool.h>
+#include <cjson/cJSON.h>
+
+typedef struct { double x, y; } Vector2;
+typedef struct Guard Guard;
+
+static double Vector2_dist(Vector2 a, Vector2 b) {
+    double dx = a.x - b.x;
+    double dy = a.y - b.y;
+    return sqrt(dx * dx + dy * dy);
+}
+
+// ---- D12 persist hooks (Guard system's native Vector2 fields) ----
+static cJSON* Guard_persist_pack_field_Vector2(void* p) {
+    Vector2* v = (Vector2*)p;
+    cJSON* o = cJSON_CreateObject();
+    cJSON_AddNumberToObject(o, "x", v->x);
+    cJSON_AddNumberToObject(o, "y", v->y);
+    return o;
+}
+static void Guard_persist_unpack_field_Vector2(cJSON* j, void* p) {
+    Vector2* v = (Vector2*)p;
+    cJSON* x = j ? cJSON_GetObjectItem(j, "x") : NULL;
+    cJSON* y = j ? cJSON_GetObjectItem(j, "y") : NULL;
+    v->x = x ? x->valuedouble : 0.0;
+    v->y = y ? y->valuedouble : 0.0;
+}
+static cJSON* Guard_persist_pack_field_Vector2_8_(void* p) {
+    Vector2* arr = (Vector2*)p;
+    cJSON* a = cJSON_CreateArray();
+    for (int i = 0; i < 8; i++) {
+        cJSON* o = cJSON_CreateObject();
+        cJSON_AddNumberToObject(o, "x", arr[i].x);
+        cJSON_AddNumberToObject(o, "y", arr[i].y);
+        cJSON_AddItemToArray(a, o);
+    }
+    return a;
+}
+static void Guard_persist_unpack_field_Vector2_8_(cJSON* j, void* p) {
+    Vector2* arr = (Vector2*)p;
+    for (int i = 0; i < 8; i++) {
+        cJSON* o = j ? cJSON_GetArrayItem(j, i) : NULL;
+        cJSON* x = o ? cJSON_GetObjectItem(o, "x") : NULL;
+        cJSON* y = o ? cJSON_GetObjectItem(o, "y") : NULL;
+        arr[i].x = x ? x->valuedouble : 0.0;
+        arr[i].y = y ? y->valuedouble : 0.0;
+    }
+}
+
+@@[persist(string)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Guard {
+
+    interface:
+        init(patrol: Vector2*, n: int, speed: double)
+        tick(dt: double, current_pos: Vector2)
+        spot_player(at: Vector2)
+        hear_sound(at: Vector2)
+        touched_player()
+        get_state(): const char*
+        get_target(): Vector2
+        get_last_known(): Vector2
+        is_aware(): bool
+        is_alerted(): bool
+        should_move(): bool
+
+    machine:
+        $Idle {
+            init(patrol: Vector2*, n: int, speed: double) {
+                int i = 0;
+                while (i < n) {
+                    @@:self.patrol[i] = patrol[i];
+                    i = i + 1;
+                }
+                @@:self.patrol_n = n;
+                @@:self.speed = speed;
+                @@:self.next_wp = 0;
+                if (n > 0) {
+                    @@:self.target = @@:self.patrol[0];
+                }
+                -> $Patrolling
+            }
+
+            tick(dt: double, current_pos: Vector2) {
+            }
+
+            get_state(): const char*    { @@:("idle") }
+            get_target(): Vector2       { @@:(@@:self.target) }
+            get_last_known(): Vector2   { @@:(@@:self.last_known) }
+            is_aware(): bool            { @@:(false) }
+            is_alerted(): bool          { @@:(false) }
+            should_move(): bool         { @@:(false) }
+        }
+
+        $Aware {
+            spot_player(at: Vector2) {
+                @@:self.last_known = at;
+                -> $Alerted
+            }
+
+            touched_player() {
+                -> $Engaged
+            }
+
+            get_state(): const char*    { @@:("aware") }
+            get_target(): Vector2       { @@:(@@:self.target) }
+            get_last_known(): Vector2   { @@:(@@:self.last_known) }
+            is_aware(): bool            { @@:(true) }
+            is_alerted(): bool          { @@:(false) }
+            should_move(): bool         { @@:(true) }
+        }
+
+        $Patrolling => $Aware {
+            tick(dt: double, current_pos: Vector2) {
+                if (@@:self.patrol_n == 0) {
+                    return;
+                }
+                double d = Vector2_dist(current_pos, @@:self.target);
+                if (d < @@:self.ARRIVAL_RADIUS) {
+                    @@:self.next_wp = @@:self.next_wp + 1;
+                    if (@@:self.next_wp >= @@:self.patrol_n) {
+                        @@:self.next_wp = 0;
+                    }
+                    @@:self.target = @@:self.patrol[@@:self.next_wp];
+                }
+            }
+
+            hear_sound(at: Vector2) {
+                push$
+                @@:self.last_known = at;
+                -> $Investigating
+            }
+
+            get_state(): const char*    { @@:("patrolling") }
+            is_aware(): bool            { @@:(false) }
+            should_move(): bool         { @@:(true) }
+            => $^
+        }
+
+        $Investigating => $Aware {
+            $.timer: double = 0.0
+
+            tick(dt: double, current_pos: Vector2) {
+                $.timer = $.timer + dt;
+                if ($.timer >= @@:self.INVESTIGATE_DURATION) {
+                    -> pop$
+                }
+            }
+
+            get_state(): const char* { @@:("investigating") }
+            should_move(): bool { @@:(false) }
+            => $^
+        }
+
+        $Alerted => $Aware {
+            $.chase_timer: double = 0.0
+
+            spot_player(at: Vector2) {
+                @@:self.last_known = at;
+                $.chase_timer = 0.0;
+            }
+
+            tick(dt: double, current_pos: Vector2) {
+                @@:self.target = @@:self.last_known;
+                $.chase_timer = $.chase_timer + dt;
+                double d = Vector2_dist(current_pos, @@:self.last_known);
+                if (d < @@:self.ARRIVAL_RADIUS) {
+                    -> $Searching
+                } else if ($.chase_timer >= @@:self.CHASE_TIMEOUT) {
+                    -> $Searching
+                }
+            }
+
+            get_state(): const char* { @@:("alerted") }
+            is_alerted(): bool  { @@:(true) }
+            should_move(): bool { @@:(true) }
+            => $^
+        }
+
+        $Searching => $Aware {
+            $.timer: double = 0.0
+
+            tick(dt: double, current_pos: Vector2) {
+                $.timer = $.timer + dt;
+                if ($.timer >= @@:self.SEARCH_DURATION) {
+                    @@:self._resume_patrol(current_pos);
+                    -> $Patrolling
+                }
+            }
+
+            get_state(): const char* { @@:("searching") }
+            should_move(): bool { @@:(false) }
+            => $^
+        }
+
+        $Engaged {
+            tick(dt: double, current_pos: Vector2) {
+            }
+
+            get_state(): const char*    { @@:("engaged") }
+            get_target(): Vector2       { @@:(@@:self.target) }
+            get_last_known(): Vector2   { @@:(@@:self.last_known) }
+            is_aware(): bool            { @@:(true) }
+            is_alerted(): bool          { @@:(true) }
+            should_move(): bool         { @@:(false) }
+        }
+
+    actions:
+        _resume_patrol(current_pos: Vector2) {
+            if (@@:self.patrol_n == 0) {
+                return;
+            }
+            int best_i = 0;
+            double best_d = Vector2_dist(current_pos, @@:self.patrol[0]);
+            int i = 1;
+            while (i < @@:self.patrol_n) {
+                double d = Vector2_dist(current_pos, @@:self.patrol[i]);
+                if (d < best_d) {
+                    best_d = d;
+                    best_i = i;
+                }
+                i = i + 1;
+            }
+            @@:self.next_wp = best_i;
+            @@:self.target = @@:self.patrol[best_i];
+        }
+
+    domain:
+        patrol: Vector2[8]
+        patrol_n: int = 0
+        next_wp: int = 0
+        target: Vector2
+        last_known: Vector2
+        speed: double = 60.0
+        ARRIVAL_RADIUS: double = 12.0
+        INVESTIGATE_DURATION: double = 1.5
+        SEARCH_DURATION: double = 3.0
+        CHASE_TIMEOUT: double = 4.0
+}
+
+@@[main]
+@@[persist(string)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Stealth {
+
+    operations:
+        get_current_state_name(): const char* { @@:(@@:system.state.name) }
+
+    interface:
+        start(p1: Vector2*, n1: int, p2: Vector2*, n2: int, p3: Vector2*, n3: int)
+        restart()
+        pause()
+        resume()
+        tick(dt: double, pos1: Vector2, pos2: Vector2, pos3: Vector2)
+        guard_caught_player(i: int)
+        player_at_exit()
+        get_state(): const char*
+        get_elapsed(): double
+        get_caught_by(): int
+
+    machine:
+        $Attract {
+            $>() {
+                @@:self.elapsed = 0.0;
+                @@:self.caught_by = -1;
+            }
+
+            start(p1: Vector2*, n1: int, p2: Vector2*, n2: int, p3: Vector2*, n3: int) {
+                Guard_init(@@:self.guard1, p1, n1, @@:self.PATROL_SPEED);
+                Guard_init(@@:self.guard2, p2, n2, @@:self.PATROL_SPEED);
+                Guard_init(@@:self.guard3, p3, n3, @@:self.PATROL_SPEED);
+                -> $Playing
+            }
+
+            get_state(): const char* { @@:("attract") }
+            get_elapsed(): double    { @@:(0.0) }
+            get_caught_by(): int     { @@:(-1) }
+        }
+
+        $Playing {
+            tick(dt: double, pos1: Vector2, pos2: Vector2, pos3: Vector2) {
+                @@:self.elapsed = @@:self.elapsed + dt;
+                Guard_tick(@@:self.guard1, dt, pos1);
+                Guard_tick(@@:self.guard2, dt, pos2);
+                Guard_tick(@@:self.guard3, dt, pos3);
+            }
+
+            guard_caught_player(i: int) {
+                @@:self.caught_by = i;
+                if (i == 0) {
+                    Guard_touched_player(@@:self.guard1);
+                } else if (i == 1) {
+                    Guard_touched_player(@@:self.guard2);
+                } else if (i == 2) {
+                    Guard_touched_player(@@:self.guard3);
+                }
+                -> $Caught
+            }
+
+            player_at_exit() {
+                -> $Escaped
+            }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state(): const char* { @@:("playing") }
+            get_elapsed(): double    { @@:(@@:self.elapsed) }
+            get_caught_by(): int     { @@:(@@:self.caught_by) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state(): const char* { @@:("paused") }
+            get_elapsed(): double    { @@:(@@:self.elapsed) }
+            get_caught_by(): int     { @@:(@@:self.caught_by) }
+        }
+
+        $Caught {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): const char* { @@:("caught") }
+            get_elapsed(): double    { @@:(@@:self.elapsed) }
+            get_caught_by(): int     { @@:(@@:self.caught_by) }
+        }
+
+        $Escaped {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): const char* { @@:("escaped") }
+            get_elapsed(): double    { @@:(@@:self.elapsed) }
+            get_caught_by(): int     { @@:(-1) }
+        }
+
+    domain:
+        guard1: Guard* = @@Guard()
+        guard2: Guard* = @@Guard()
+        guard3: Guard* = @@Guard()
+        elapsed: double = 0.0
+        caught_by: int = -1
+        PATROL_SPEED: double = 95.0
+}
