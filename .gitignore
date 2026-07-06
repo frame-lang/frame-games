@@ -117,3 +117,6 @@ build/spike-stealth-cs/
 build/spike-stealth-java/
 build/spike-stealth-kt/
 build/spike-stealth-go/
+build/spike-stealth-rust/
+build/spike-stealth-swift/
+build/spike-stealth-dart/
