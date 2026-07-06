@@ -114,3 +114,6 @@ build/spike-shooter-cpp/
 build/spike-shooter-gd/
 build/spike-shooter-lua/
 build/spike-stealth-cs/
+build/spike-stealth-java/
+build/spike-stealth-kt/
+build/spike-stealth-go/

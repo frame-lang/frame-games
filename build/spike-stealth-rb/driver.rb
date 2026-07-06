@@ -1,5 +1,4 @@
 # Stealth cross-language oracle — Ruby driver. Mirrors run-oracle.mjs.
-require 'json'  # framec #166: generated ruby persist omits its own require 'json'
 require_relative "stealth"
 
 DT = 1.0 / 64.0

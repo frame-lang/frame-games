@@ -1,0 +1,326 @@
+@@[target("kotlin")]
+
+// Stealth — guard agent AI, Kotlin port of the canonical controller
+// (games/stealth/src/stealth.fjs). Same two systems (Guard / Stealth),
+// states, the $Aware HSM parent that shares the spot_player response, the
+// push$/pop$ investigate-then-resume subroutine, the three owned Guard
+// instances, and the game flow $Attract -> $Playing -> $Caught/$Escaped
+// plus the push$/pop$ pause. Bodies are native Kotlin (parens, `;`, List<T>);
+// doubles throughout so timer math matches the JS baseline bit-for-bit.
+// The @@[persist]/@@[save]/@@[load] contract is kept verbatim — the blob
+// type is `String` as in the JS reference.
+
+import kotlin.math.sqrt
+
+class Vector2 {
+    var x: Double = 0.0
+    var y: Double = 0.0
+    constructor()
+    constructor(x: Double, y: Double) { this.x = x; this.y = y }
+}
+
+object Geo {
+    fun dist(a: Vector2, b: Vector2): Double {
+        val dx = a.x - b.x
+        val dy = a.y - b.y
+        return sqrt(dx * dx + dy * dy)
+    }
+}
+
+@@[persist(String)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Guard {
+
+    interface:
+        init(patrol: List<Vector2>, speed: Double)
+        tick(dt: Double, current_pos: Vector2)
+        spot_player(at: Vector2)
+        hear_sound(at: Vector2)
+        touched_player()
+        get_state(): String
+        get_target(): Vector2
+        get_last_known(): Vector2
+        is_aware(): Boolean
+        is_alerted(): Boolean
+        should_move(): Boolean
+
+    machine:
+        $Idle {
+            init(patrol: List<Vector2>, speed: Double) {
+                @@:self.patrol = patrol;
+                @@:self.speed = speed;
+                @@:self.next_wp = 0;
+                if (patrol.size > 0) {
+                    @@:self.target = patrol[0];
+                }
+                -> $Patrolling
+            }
+
+            tick(dt: Double, current_pos: Vector2) {
+            }
+
+            get_state(): String         { @@:("idle") }
+            get_target(): Vector2       { @@:(@@:self.target) }
+            get_last_known(): Vector2   { @@:(@@:self.last_known) }
+            is_aware(): Boolean            { @@:(false) }
+            is_alerted(): Boolean          { @@:(false) }
+            should_move(): Boolean         { @@:(false) }
+        }
+
+        $Aware {
+            spot_player(at: Vector2) {
+                @@:self.last_known = at;
+                -> $Alerted
+            }
+
+            touched_player() {
+                -> $Engaged
+            }
+
+            get_state(): String         { @@:("aware") }
+            get_target(): Vector2       { @@:(@@:self.target) }
+            get_last_known(): Vector2   { @@:(@@:self.last_known) }
+            is_aware(): Boolean            { @@:(true) }
+            is_alerted(): Boolean          { @@:(false) }
+            should_move(): Boolean         { @@:(true) }
+        }
+
+        $Patrolling => $Aware {
+            tick(dt: Double, current_pos: Vector2) {
+                if (@@:self.patrol.size == 0) {
+                    return;
+                }
+                val d = Geo.dist(current_pos, @@:self.target);
+                if (d < @@:self.ARRIVAL_RADIUS) {
+                    @@:self.next_wp = @@:self.next_wp + 1;
+                    if (@@:self.next_wp >= @@:self.patrol.size) {
+                        @@:self.next_wp = 0;
+                    }
+                    @@:self.target = @@:self.patrol[@@:self.next_wp];
+                }
+            }
+
+            hear_sound(at: Vector2) {
+                push$
+                @@:self.last_known = at;
+                -> $Investigating
+            }
+
+            get_state(): String         { @@:("patrolling") }
+            is_aware(): Boolean            { @@:(false) }
+            should_move(): Boolean         { @@:(true) }
+            => $^
+        }
+
+        $Investigating => $Aware {
+            $.timer: Double = 0.0
+
+            tick(dt: Double, current_pos: Vector2) {
+                $.timer = $.timer + dt;
+                if ($.timer >= @@:self.INVESTIGATE_DURATION) {
+                    -> pop$
+                }
+            }
+
+            get_state(): String { @@:("investigating") }
+            should_move(): Boolean { @@:(false) }
+            => $^
+        }
+
+        $Alerted => $Aware {
+            $.chase_timer: Double = 0.0
+
+            spot_player(at: Vector2) {
+                @@:self.last_known = at;
+                $.chase_timer = 0.0;
+            }
+
+            tick(dt: Double, current_pos: Vector2) {
+                @@:self.target = @@:self.last_known;
+                $.chase_timer = $.chase_timer + dt;
+                val d = Geo.dist(current_pos, @@:self.last_known);
+                if (d < @@:self.ARRIVAL_RADIUS) {
+                    -> $Searching
+                } else if ($.chase_timer >= @@:self.CHASE_TIMEOUT) {
+                    -> $Searching
+                }
+            }
+
+            get_state(): String { @@:("alerted") }
+            is_alerted(): Boolean  { @@:(true) }
+            should_move(): Boolean { @@:(true) }
+            => $^
+        }
+
+        $Searching => $Aware {
+            $.timer: Double = 0.0
+
+            tick(dt: Double, current_pos: Vector2) {
+                $.timer = $.timer + dt;
+                if ($.timer >= @@:self.SEARCH_DURATION) {
+                    @@:self._resume_patrol(current_pos);
+                    -> $Patrolling
+                }
+            }
+
+            get_state(): String { @@:("searching") }
+            should_move(): Boolean { @@:(false) }
+            => $^
+        }
+
+        $Engaged {
+            tick(dt: Double, current_pos: Vector2) {
+            }
+
+            get_state(): String         { @@:("engaged") }
+            get_target(): Vector2       { @@:(@@:self.target) }
+            get_last_known(): Vector2   { @@:(@@:self.last_known) }
+            is_aware(): Boolean            { @@:(true) }
+            is_alerted(): Boolean          { @@:(true) }
+            should_move(): Boolean         { @@:(false) }
+        }
+
+    actions:
+        _resume_patrol(current_pos: Vector2) {
+            if (@@:self.patrol.size == 0) {
+                return;
+            }
+            var best_i = 0
+            var best_d = Geo.dist(current_pos, @@:self.patrol[0]);
+            var i = 1
+            while (i < @@:self.patrol.size) {
+                val d = Geo.dist(current_pos, @@:self.patrol[i]);
+                if (d < best_d) {
+                    best_d = d;
+                    best_i = i;
+                }
+                i = i + 1;
+            }
+            @@:self.next_wp = best_i;
+            @@:self.target = @@:self.patrol[best_i];
+        }
+
+    domain:
+        patrol: List<Vector2> = mutableListOf<Vector2>()
+        next_wp: Int = 0
+        target: Vector2 = Vector2(0.0, 0.0)
+        last_known: Vector2 = Vector2(0.0, 0.0)
+        speed: Double = 60.0
+        ARRIVAL_RADIUS: Double = 12.0
+        INVESTIGATE_DURATION: Double = 1.5
+        SEARCH_DURATION: Double = 3.0
+        CHASE_TIMEOUT: Double = 4.0
+}
+
+@@[main]
+@@[persist(String)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Stealth {
+
+    operations:
+        get_current_state_name(): String { @@:(@@:system.state.name) }
+
+    interface:
+        start(p1: List<Vector2>, p2: List<Vector2>, p3: List<Vector2>)
+        restart()
+        pause()
+        resume()
+        tick(dt: Double, pos1: Vector2, pos2: Vector2, pos3: Vector2)
+        guard_caught_player(i: Int)
+        player_at_exit()
+        get_state(): String
+        get_elapsed(): Double
+        get_caught_by(): Int
+
+    machine:
+        $Attract {
+            $>() {
+                @@:self.elapsed = 0.0;
+                @@:self.caught_by = -1;
+            }
+
+            start(p1: List<Vector2>, p2: List<Vector2>, p3: List<Vector2>) {
+                @@:self.guard1.init(p1, @@:self.PATROL_SPEED);
+                @@:self.guard2.init(p2, @@:self.PATROL_SPEED);
+                @@:self.guard3.init(p3, @@:self.PATROL_SPEED);
+                -> $Playing
+            }
+
+            get_state(): String     { @@:("attract") }
+            get_elapsed(): Double   { @@:(0.0) }
+            get_caught_by(): Int    { @@:(-1) }
+        }
+
+        $Playing {
+            tick(dt: Double, pos1: Vector2, pos2: Vector2, pos3: Vector2) {
+                @@:self.elapsed = @@:self.elapsed + dt;
+                @@:self.guard1.tick(dt, pos1);
+                @@:self.guard2.tick(dt, pos2);
+                @@:self.guard3.tick(dt, pos3);
+            }
+
+            guard_caught_player(i: Int) {
+                @@:self.caught_by = i;
+                if (i == 0) {
+                    @@:self.guard1.touched_player();
+                } else if (i == 1) {
+                    @@:self.guard2.touched_player();
+                } else if (i == 2) {
+                    @@:self.guard3.touched_player();
+                }
+                -> $Caught
+            }
+
+            player_at_exit() {
+                -> $Escaped
+            }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state(): String     { @@:("playing") }
+            get_elapsed(): Double   { @@:(@@:self.elapsed) }
+            get_caught_by(): Int    { @@:(@@:self.caught_by) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state(): String     { @@:("paused") }
+            get_elapsed(): Double   { @@:(@@:self.elapsed) }
+            get_caught_by(): Int    { @@:(@@:self.caught_by) }
+        }
+
+        $Caught {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String     { @@:("caught") }
+            get_elapsed(): Double   { @@:(@@:self.elapsed) }
+            get_caught_by(): Int    { @@:(@@:self.caught_by) }
+        }
+
+        $Escaped {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String     { @@:("escaped") }
+            get_elapsed(): Double   { @@:(@@:self.elapsed) }
+            get_caught_by(): Int    { @@:(-1) }
+        }
+
+    domain:
+        guard1: Guard = @@Guard()
+        guard2: Guard = @@Guard()
+        guard3: Guard = @@Guard()
+        elapsed: Double = 0.0
+        caught_by: Int = -1
+        PATROL_SPEED: Double = 95.0
+}
