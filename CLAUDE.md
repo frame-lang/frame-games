@@ -51,5 +51,16 @@ bugs filed here: #108/#110/#112/#115/#116/#117/#120/#122/#124 (fixed), #126 (not
 also #141/#147/#156/#157 (fixed+validated), #144 (php domain initializer — **PHP port
 blocked**), #159 (indexed-dispatch family, fixed — birthed E616/E617), #161 (→E616),
 plus #164 (OPEN: C typedef-hidden element type silently emits invalid C; needs
-E617-style error) and #165 (OPEN: csharp @@[persist] drops field-based user types,
-silent — **C# Stealth column blocked**).
+E617-style error). Stealth game (first @@[persist] test) surfaced a persist-bug
+cluster: #165 (csharp field-loss), #166 (ruby missing require 'json'), #171 (go
+missing encoding/json import), #172 (go child save_state casing) — all
+FIXED+VALIDATED in local build 4.6.0.x; #174 (python json.dumps of a class —
+borderline/likely-wontfix), #175 (swift `init` reserved-keyword — FIXED+validated
+4.6.0.8), #176 (dart persist restore blind-cast — FIXED+validated 4.6.0.8),
+#178 (**OPEN: swift @@[persist] save_state uses JSONSerialization while
+restore uses JSONDecoder — save crashes on Codable user-typed domain fields;
+blocks swift Stealth column**). Stealth matrix = 15/16 byte-identical
+(dart green; swift's main scenario passes, persist blocked on #178).
+NOTE: Frame has NO native types — type annotations are opaque passthrough
+strings; invalid target code from a type annotation is a wrong source string,
+NOT a framec bug (real bugs live in generated machinery). See auto-memory.
