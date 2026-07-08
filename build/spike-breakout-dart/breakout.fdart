@@ -1,0 +1,291 @@
+@@[target("dart")]
+
+// Breakout — C# port of the canonical controller
+// (games/breakout/src/breakout.fjs). Ball / BrickField / Breakout. The star is
+// the enter-argument transition: Ball.launch does `-> (vx, vy) $InFlight`,
+// threading the velocity into $InFlight's `$>(vx, vy)` handler. Bodies native
+// C#; doubles throughout so dt=1/64 math matches the JS baseline bit-for-bit.
+
+@@system Ball {
+
+    interface:
+        launch(vx: double, vy: double)
+        lose()
+        attach()
+        bounce_x()
+        bounce_y()
+        set_velocity(vx: double, vy: double)
+        tick(dt: double)
+        get_state(): String
+        get_vx(): double
+        get_vy(): double
+        is_flying(): bool
+        respawn_progress(): double
+
+    machine:
+        $AttachedToPaddle {
+            launch(vx: double, vy: double) { -> (vx, vy) $InFlight }
+
+            get_state(): String         { @@:("attached") }
+            get_vx(): double            { @@:(0.0) }
+            get_vy(): double            { @@:(0.0) }
+            is_flying(): bool           { @@:(false) }
+            respawn_progress(): double  { @@:(1.0) }
+        }
+
+        $InFlight {
+            $.vx: double = 0.0
+            $.vy: double = 0.0
+
+            $>(vx: double, vy: double) {
+                $.vx = vx;
+                $.vy = vy;
+            }
+
+            bounce_x() { $.vx = -$.vx; }
+            bounce_y() { $.vy = -$.vy; }
+
+            set_velocity(vx: double, vy: double) {
+                $.vx = vx;
+                $.vy = vy;
+            }
+
+            lose() { -> $Lost }
+
+            get_state(): String         { @@:("in_flight") }
+            get_vx(): double            { @@:($.vx) }
+            get_vy(): double            { @@:($.vy) }
+            is_flying(): bool           { @@:(true) }
+            respawn_progress(): double  { @@:(1.0) }
+        }
+
+        $Lost {
+            $.elapsed: double = 0.0
+
+            tick(dt: double) {
+                $.elapsed = $.elapsed + dt;
+                if ($.elapsed >= 2.0) {
+                    -> $AttachedToPaddle
+                }
+            }
+
+            attach() { -> $AttachedToPaddle }
+
+            get_state(): String         { @@:("lost") }
+            get_vx(): double            { @@:(0.0) }
+            get_vy(): double            { @@:(0.0) }
+            is_flying(): bool           { @@:(false) }
+            respawn_progress(): double  { @@:($.elapsed / 2.0) }
+        }
+}
+
+@@system BrickField {
+
+    interface:
+        reset(count: int)
+        break_brick(index: int): bool
+        is_broken(index: int): bool
+        remaining(): int
+        is_cleared(): bool
+
+    machine:
+        $Active {
+            reset(count: int) {
+                @@:self.bricks = <bool>[];
+                int _i = 0;
+                while (_i < count) {
+                    @@:self.bricks.add(true);
+                    _i = _i + 1;
+                }
+                @@:self.remaining_count = count;
+            }
+
+            break_brick(index: int): bool {
+                if (index < 0 || index >= @@:self.bricks.length) {
+                    @@:return(false)
+                }
+                if (!@@:self.bricks[index]) {
+                    @@:return(false)
+                }
+                @@:self.bricks[index] = false;
+                @@:self.remaining_count = @@:self.remaining_count - 1;
+                @@:(true)
+            }
+
+            is_broken(index: int): bool {
+                if (index < 0 || index >= @@:self.bricks.length) {
+                    @@:return(true)
+                }
+                @@:(!@@:self.bricks[index])
+            }
+
+            remaining(): int  { @@:(@@:self.remaining_count) }
+            is_cleared(): bool { @@:(@@:self.remaining_count <= 0) }
+        }
+
+    domain:
+        bricks: List<bool> = <bool>[]
+        remaining_count: int = 0
+}
+
+@@[main]
+@@system Breakout {
+
+    operations:
+        get_current_state_name(): String { @@:(@@:system.state.name) }
+
+    interface:
+        start()
+        launch_ball(vx: double, vy: double)
+        brick_hit(index: int)
+        paddle_hit(vx: double, vy: double)
+        wall_bounce_x()
+        wall_bounce_y()
+        ball_fell_off()
+        tick(dt: double)
+        pause()
+        resume()
+        restart()
+        get_state(): String
+        get_score(): int
+        get_lives(): int
+        get_level(): int
+        bricks_remaining(): int
+        is_brick_broken(index: int): bool
+        ball_state(): String
+        ball_vx(): double
+        ball_vy(): double
+        ball_respawn_progress(): double
+
+    machine:
+        $Attract {
+            $>() {
+                @@:self.score = 0;
+                @@:self.lives = 3;
+                @@:self.level = 1;
+                @@:self.bricks.reset(@@:self.brick_count);
+            }
+
+            start() {
+                @@:self.bricks.reset(@@:self.brick_count);
+                @@:self.ball.attach();
+                -> $Playing
+            }
+
+            get_state(): String          { @@:("attract") }
+            get_score(): int             { @@:(@@:self.score) }
+            get_lives(): int             { @@:(@@:self.lives) }
+            get_level(): int             { @@:(@@:self.level) }
+            bricks_remaining(): int      { @@:(@@:self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(@@:self.bricks.is_broken(index)) }
+            ball_state(): String         { @@:(@@:self.ball.get_state()) }
+            ball_vx(): double            { @@:(@@:self.ball.get_vx()) }
+            ball_vy(): double            { @@:(@@:self.ball.get_vy()) }
+        }
+
+        $Playing {
+            launch_ball(vx: double, vy: double) {
+                @@:self.ball.launch(vx, vy);
+            }
+
+            brick_hit(index: int) {
+                if (@@:self.bricks.break_brick(index)) {
+                    @@:self.score = @@:self.score + @@:self.points_per_brick;
+                    @@:self.ball.bounce_y();
+                    if (@@:self.bricks.is_cleared()) {
+                        -> $LevelClear
+                    }
+                }
+            }
+
+            paddle_hit(vx: double, vy: double) {
+                @@:self.ball.set_velocity(vx, vy);
+            }
+
+            wall_bounce_x() { @@:self.ball.bounce_x(); }
+            wall_bounce_y() { @@:self.ball.bounce_y(); }
+
+            ball_fell_off() {
+                @@:self.lives = @@:self.lives - 1;
+                if (@@:self.lives <= 0) {
+                    -> $GameOver
+                } else {
+                    @@:self.ball.lose();
+                }
+            }
+
+            tick(dt: double) { @@:self.ball.tick(dt); }
+
+            pause() { push$ -> $Paused }
+
+            get_state(): String          { @@:("playing") }
+            get_score(): int             { @@:(@@:self.score) }
+            get_lives(): int             { @@:(@@:self.lives) }
+            get_level(): int             { @@:(@@:self.level) }
+            bricks_remaining(): int      { @@:(@@:self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(@@:self.bricks.is_broken(index)) }
+            ball_state(): String         { @@:(@@:self.ball.get_state()) }
+            ball_vx(): double            { @@:(@@:self.ball.get_vx()) }
+            ball_vy(): double            { @@:(@@:self.ball.get_vy()) }
+            ball_respawn_progress(): double { @@:(@@:self.ball.respawn_progress()) }
+        }
+
+        $LevelClear {
+            $>() {
+                @@:self.level = @@:self.level + 1;
+            }
+
+            start() {
+                @@:self.bricks.reset(@@:self.brick_count);
+                @@:self.ball.attach();
+                -> $Playing
+            }
+
+            get_state(): String          { @@:("level_clear") }
+            get_score(): int             { @@:(@@:self.score) }
+            get_lives(): int             { @@:(@@:self.lives) }
+            get_level(): int             { @@:(@@:self.level) }
+            bricks_remaining(): int      { @@:(@@:self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(@@:self.bricks.is_broken(index)) }
+            ball_state(): String         { @@:(@@:self.ball.get_state()) }
+            ball_vx(): double            { @@:(@@:self.ball.get_vx()) }
+            ball_vy(): double            { @@:(@@:self.ball.get_vy()) }
+        }
+
+        $Paused {
+            resume() { -> pop$ }
+
+            get_state(): String          { @@:("paused") }
+            get_score(): int             { @@:(@@:self.score) }
+            get_lives(): int             { @@:(@@:self.lives) }
+            get_level(): int             { @@:(@@:self.level) }
+            bricks_remaining(): int      { @@:(@@:self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(@@:self.bricks.is_broken(index)) }
+            ball_state(): String         { @@:(@@:self.ball.get_state()) }
+            ball_vx(): double            { @@:(@@:self.ball.get_vx()) }
+            ball_vy(): double            { @@:(@@:self.ball.get_vy()) }
+        }
+
+        $GameOver {
+            restart() { -> $Attract }
+
+            get_state(): String          { @@:("game_over") }
+            get_score(): int             { @@:(@@:self.score) }
+            get_lives(): int             { @@:(@@:self.lives) }
+            get_level(): int             { @@:(@@:self.level) }
+            bricks_remaining(): int      { @@:(@@:self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(@@:self.bricks.is_broken(index)) }
+            ball_state(): String         { @@:(@@:self.ball.get_state()) }
+            ball_vx(): double            { @@:(@@:self.ball.get_vx()) }
+            ball_vy(): double            { @@:(@@:self.ball.get_vy()) }
+        }
+
+    domain:
+        score: int = 0
+        lives: int = 3
+        level: int = 1
+        brick_count: int = 40
+        points_per_brick: int = 10
+        ball: Ball = @@Ball()
+        bricks: BrickField = @@BrickField()
+}
