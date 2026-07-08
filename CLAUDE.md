@@ -57,10 +57,10 @@ missing encoding/json import), #172 (go child save_state casing) — all
 FIXED+VALIDATED in local build 4.6.0.x; #174 (python json.dumps of a class —
 borderline/likely-wontfix), #175 (swift `init` reserved-keyword — FIXED+validated
 4.6.0.8), #176 (dart persist restore blind-cast — FIXED+validated 4.6.0.8),
-#178 (**OPEN: swift @@[persist] save_state uses JSONSerialization while
-restore uses JSONDecoder — save crashes on Codable user-typed domain fields;
-blocks swift Stealth column**). Stealth matrix = 15/16 byte-identical
-(dart green; swift's main scenario passes, persist blocked on #178).
+#178 (swift @@[persist] save/restore mechanism mismatch — FIXED+validated
+4.6.0.12). **Stealth matrix = 16/16 byte-identical — COMPLETE** (js ts python
+ruby php lua csharp java kotlin go rust c[ASan] cpp[ASan] gdscript dart swift).
+Bug harvest: 8 filed / 7 fixed (persist-machinery cluster), #174 borderline.
 NOTE: Frame has NO native types — type annotations are opaque passthrough
 strings; invalid target code from a type annotation is a wrong source string,
 NOT a framec bug (real bugs live in generated machinery). See auto-memory.
