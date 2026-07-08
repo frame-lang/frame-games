@@ -1,0 +1,34 @@
+{
+  "id": "invaders",
+  "title": "Space Invaders",
+  "summary": "The classic descending formation — but the twist is structural: the game orchestrator is itself a hierarchical state machine. $Playing, $PlayerDying, and $WaveComplete are all children of one $InGame parent that owns the shared pause/quit handlers, while a Fleet marches the formation and speeds up as its ranks thin.",
+  "teaches": "Orchestrator-as-HSM: $InGame parent shares handlers across three combat sub-states via => $^ · a Fleet system marching a formation · push$/pop$ pause from inside the HSM",
+  "controls": "A/D or ←/→ move · hold SPACE fire · P pause · SPACE start · R restart",
+  "mobileButtons": [
+    { "label": "◀", "key": "ArrowLeft",  "hold": true,  "position": "left" },
+    { "label": "▶", "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "FIRE", "key": "Space",   "hold": true,  "position": "bottom" },
+    { "label": "⏸", "key": "KeyP",       "hold": false, "position": "bottom" },
+    { "label": "↻", "key": "KeyR",       "hold": false, "position": "bottom" }
+  ],
+  "machines": [
+    {
+      "system": "Invaders",
+      "title": "Invaders — the orchestrator (itself an HSM)",
+      "blurb": "$Attract → $InGame → $GameOver, where $InGame is a PARENT state: $Playing / $PlayerDying / $WaveComplete are its children and inherit its pause() and quit() handlers via => $^. The first game in the collection whose top-level controller is hierarchical, not flat — pause is a push$/pop$ interrupt reachable from any combat sub-state."
+    },
+    {
+      "system": "Fleet",
+      "title": "Fleet — marching the formation",
+      "blurb": "$Marching → $Stepping → $Marching, with $Defeated as the terminal. The fleet owns the formation's descent cadence — it marches horizontally, drops and reverses at the edges, and accelerates as invaders are cleared. The scene owns the grid of sprites; the Fleet owns the rhythm."
+    },
+    {
+      "system": "Player",
+      "title": "Player — hit/invulnerability window",
+      "blurb": "$Alive → $Exploding → $Invulnerable → $Alive (or $Dead) — the same damage loop as Shooter's player, with the invulnerability grace window as a timed state the orchestrator reads to decide $PlayerDying vs $GameOver."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "Phaser · JS" }
+  ]
+}

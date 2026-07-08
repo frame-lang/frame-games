@@ -80,6 +80,16 @@ const STATE_ACCESSORS: Record<
       Guard: () => liveState(sub.guard1),
     };
   },
+  invaders: (m) => {
+    // player + fleet are owned children; the orchestrator itself is an HSM
+    // ($InGame parent over $Playing/$PlayerDying/$WaveComplete).
+    const sub = m as { player?: unknown; fleet?: unknown };
+    return {
+      Invaders: () => liveState(m),
+      Fleet: () => liveState(sub.fleet),
+      Player: () => liveState(sub.player),
+    };
+  },
   pacman: (m) => {
     // Ghosts are driver-populated (the scene add_ghost()s four instances after
     // machine creation), so read the list lazily each tick. The Ghost card

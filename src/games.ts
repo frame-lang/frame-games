@@ -12,6 +12,8 @@ import { shooter } from "../games/shooter/src";
 import shooterManifest from "../games/shooter/game.json";
 import { stealth } from "../games/stealth/src";
 import stealthManifest from "../games/stealth/game.json";
+import { invaders } from "../games/invaders/src";
+import invadersManifest from "../games/invaders/game.json";
 import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
@@ -91,6 +93,10 @@ export const GAMES: Record<string, GameEntry> = {
   stealth: {
     def: stealth,
     manifest: stealthManifest as GameManifest,
+  },
+  invaders: {
+    def: invaders,
+    manifest: invadersManifest as GameManifest,
   },
 };
 
