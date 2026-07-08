@@ -1,0 +1,451 @@
+@@[target("php")]
+
+// Space Invaders — PHP port of the canonical controller
+// (games/invaders/src/invaders.fjs). Native PHP bodies: $this->field domain
+// access, $param variables (framec does not insert $ — php.md §35), native
+// if/while braces. Pace uses PHP float `/`; lowest_row uses intdiv() for floor.
+
+@@system Player {
+
+    interface:
+        tick(dt)
+        hit()
+        respawn()
+        can_fire()
+        can_be_hit()
+        is_alive()
+        get_state()
+        get_lives()
+
+    machine:
+        $Alive {
+            hit() { -> $Exploding }
+            can_fire()    { @@:(true) }
+            can_be_hit()  { @@:(true) }
+            is_alive()    { @@:(true) }
+            get_state()   { @@:("alive") }
+            get_lives()   { @@:($this->lives_remaining) }
+        }
+
+        $Exploding {
+            $.timer = 0.0
+            $.duration = 1.2
+
+            tick(dt) {
+                $.timer = $.timer + $dt;
+                if ($.timer >= $.duration) {
+                    $this->lives_remaining = $this->lives_remaining - 1;
+                    if ($this->lives_remaining <= 0) {
+                        -> $Dead
+                    } else {
+                        -> $Invulnerable
+                    }
+                }
+            }
+
+            can_fire()    { @@:(false) }
+            can_be_hit()  { @@:(false) }
+            is_alive()    { @@:(false) }
+            get_state()   { @@:("exploding") }
+            get_lives()   { @@:($this->lives_remaining) }
+        }
+
+        $Invulnerable {
+            $.timer = 0.0
+            $.duration = 1.5
+
+            tick(dt) {
+                $.timer = $.timer + $dt;
+                if ($.timer >= $.duration) {
+                    -> $Alive
+                }
+            }
+
+            can_fire()    { @@:(true) }
+            can_be_hit()  { @@:(false) }
+            is_alive()    { @@:(true) }
+            get_state()   { @@:("invulnerable") }
+            get_lives()   { @@:($this->lives_remaining) }
+        }
+
+        $Dead {
+            respawn() {
+                $this->lives_remaining = $this->starting_lives;
+                -> $Alive
+            }
+            can_fire()    { @@:(false) }
+            can_be_hit()  { @@:(false) }
+            is_alive()    { @@:(false) }
+            get_state()   { @@:("dead") }
+            get_lives()   { @@:($this->lives_remaining) }
+        }
+
+    domain:
+        lives_remaining = 3
+        starting_lives = 3
+}
+
+@@system Fleet {
+
+    interface:
+        tick(dt)
+        kill_invader(index)
+        reset(rows, cols)
+        edge_reached()
+        consume_step()
+        wants_to_step()
+        get_state()
+        get_direction()
+        get_step_interval()
+        is_alive(index)
+        alive_count()
+        lowest_row()
+        cols()
+        rows()
+        total()
+
+    machine:
+        $Marching {
+            $.timer = 0.0
+
+            tick(dt) {
+                $.timer = $.timer + $dt;
+            }
+
+            reset(rows, cols) {
+                $this->_do_reset($rows, $cols);
+                $.timer = 0.0;
+            }
+
+            kill_invader(index) {
+                if ($this->_do_kill($index)) {
+                    if ($this->_count_alive() == 0) {
+                        -> $Defeated
+                        @@:return(true)
+                    }
+                    @@:return(true)
+                }
+                @@:(false)
+            }
+
+            edge_reached() {
+                $this->pending_step = true;
+                -> $Stepping
+            }
+
+            consume_step() {
+                if ($.timer >= $this->step_interval) {
+                    $.timer = 0.0;
+                    @@:return(true)
+                }
+                @@:(false)
+            }
+
+            wants_to_step()     { @@:($.timer >= $this->step_interval) }
+            get_state()         { @@:("marching") }
+            get_direction()     { @@:($this->direction) }
+            get_step_interval() { @@:($this->step_interval) }
+            is_alive(index)     { @@:($this->_is_alive($index)) }
+            alive_count()       { @@:($this->_count_alive()) }
+            lowest_row()        { @@:($this->_lowest_row()) }
+            cols()              { @@:($this->grid_cols) }
+            rows()              { @@:($this->grid_rows) }
+            total()             { @@:($this->grid_rows * $this->grid_cols) }
+        }
+
+        $Stepping {
+            $>() {
+                $this->direction = -$this->direction;
+                $this->pending_step = false;
+            }
+
+            tick(dt) {
+                -> $Marching
+            }
+
+            kill_invader(index) {
+                if ($this->_do_kill($index)) {
+                    if ($this->_count_alive() == 0) {
+                        -> $Defeated
+                        @@:return(true)
+                    }
+                    @@:return(true)
+                }
+                @@:(false)
+            }
+
+            consume_step()      { @@:(false) }
+            wants_to_step()     { @@:(false) }
+            get_state()         { @@:("stepping") }
+            get_direction()     { @@:($this->direction) }
+            get_step_interval() { @@:($this->step_interval) }
+            is_alive(index)     { @@:($this->_is_alive($index)) }
+            alive_count()       { @@:($this->_count_alive()) }
+            lowest_row()        { @@:($this->_lowest_row()) }
+            cols()              { @@:($this->grid_cols) }
+            rows()              { @@:($this->grid_rows) }
+            total()             { @@:($this->grid_rows * $this->grid_cols) }
+        }
+
+        $Defeated {
+            reset(rows, cols) {
+                $this->_do_reset($rows, $cols);
+                -> $Marching
+            }
+
+            consume_step()      { @@:(false) }
+            wants_to_step()     { @@:(false) }
+            get_state()         { @@:("defeated") }
+            get_direction()     { @@:($this->direction) }
+            get_step_interval() { @@:($this->step_interval) }
+            is_alive(index)     { @@:(false) }
+            alive_count()       { @@:(0) }
+            lowest_row()        { @@:(-1) }
+            cols()              { @@:($this->grid_cols) }
+            rows()              { @@:($this->grid_rows) }
+            total()             { @@:($this->grid_rows * $this->grid_cols) }
+        }
+
+    actions:
+        _do_reset(rows, cols) {
+            $this->grid_rows = $rows;
+            $this->grid_cols = $cols;
+            $this->alive = [];
+            $total = $rows * $cols;
+            $i = 0;
+            while ($i < $total) {
+                $this->alive[] = true;
+                $i = $i + 1;
+            }
+            $this->direction = 1;
+            $this->step_interval = $this->initial_step_interval;
+            $this->total_invaders = $total;
+        }
+
+        _do_kill(index) {
+            if ($index < 0 || $index >= count($this->alive)) {
+                return false;
+            }
+            if (!$this->alive[$index]) {
+                return false;
+            }
+            $this->alive[$index] = false;
+            $this->_update_pace();
+            return true;
+        }
+
+        _is_alive(index) {
+            if ($index < 0 || $index >= count($this->alive)) {
+                return false;
+            }
+            return $this->alive[$index];
+        }
+
+        _count_alive() {
+            $c = 0;
+            $i = 0;
+            while ($i < count($this->alive)) {
+                if ($this->alive[$i]) {
+                    $c = $c + 1;
+                }
+                $i = $i + 1;
+            }
+            return $c;
+        }
+
+        _lowest_row() {
+            $i = count($this->alive) - 1;
+            while ($i >= 0) {
+                if ($this->alive[$i]) {
+                    return intdiv($i, $this->grid_cols);
+                }
+                $i = $i - 1;
+            }
+            return -1;
+        }
+
+        _update_pace() {
+            if ($this->total_invaders <= 0) {
+                return;
+            }
+            $live = $this->_count_alive();
+            $frac = $live / $this->total_invaders;
+            $this->step_interval = $this->min_step_interval + ($this->initial_step_interval - $this->min_step_interval) * $frac;
+        }
+
+    domain:
+        alive = []
+        grid_rows = 5
+        grid_cols = 11
+        total_invaders = 55
+        direction = 1
+        step_interval = 0.6
+        initial_step_interval = 0.6
+        min_step_interval = 0.06
+        pending_step = false
+}
+
+@@[main]
+@@system Invaders {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+
+    interface:
+        start()
+        restart()
+        pause()
+        resume()
+        tick(dt)
+        player_killed_invader(index)
+        player_hit()
+        fleet_reached_edge()
+        fleet_reached_bottom()
+        get_state()
+        get_score()
+        get_lives()
+        get_wave()
+        is_paused()
+
+    machine:
+        $Attract {
+            $>() {
+                $this->score = 0;
+                $this->wave = 1;
+            }
+
+            start() {
+                $this->player->respawn();
+                $this->fleet->reset($this->fleet_rows, $this->fleet_cols);
+                -> $Playing
+            }
+
+            get_state()  { @@:("attract") }
+            get_score()  { @@:($this->score) }
+            get_lives()  { @@:($this->player->get_lives()) }
+            get_wave()   { @@:($this->wave) }
+            is_paused()  { @@:(false) }
+        }
+
+        $InGame {
+            pause() {
+                push$ -> $Paused
+            }
+
+            get_state()  { @@:("in_game") }
+            get_score()  { @@:($this->score) }
+            get_lives()  { @@:($this->player->get_lives()) }
+            get_wave()   { @@:($this->wave) }
+            is_paused()  { @@:(false) }
+        }
+
+        $Playing => $InGame {
+            tick(dt) {
+                $this->player->tick($dt);
+                $this->fleet->tick($dt);
+            }
+
+            player_killed_invader(index) {
+                if ($this->fleet->kill_invader($index)) {
+                    $this->score = $this->score + $this->points_per_invader;
+                    if ($this->fleet->alive_count() <= 0) {
+                        -> $WaveComplete
+                    }
+                }
+            }
+
+            player_hit() {
+                if ($this->player->can_be_hit()) {
+                    $this->player->hit();
+                    -> $PlayerDying
+                }
+            }
+
+            fleet_reached_edge() {
+                $this->fleet->edge_reached();
+            }
+
+            fleet_reached_bottom() {
+                -> $GameOver
+            }
+
+            get_state()  { @@:("playing") }
+            => $^
+        }
+
+        $PlayerDying => $InGame {
+            tick(dt) {
+                $this->player->tick($dt);
+                $this->fleet->tick($dt);
+                if ($this->player->get_state() == "invulnerable") {
+                    -> $Playing
+                } else if ($this->player->get_state() == "dead") {
+                    -> $GameOver
+                }
+            }
+
+            fleet_reached_edge() {
+                $this->fleet->edge_reached();
+            }
+
+            fleet_reached_bottom() {
+                -> $GameOver
+            }
+
+            get_state()  { @@:("player_dying") }
+            => $^
+        }
+
+        $WaveComplete => $InGame {
+            $>() {
+                $this->wave_timer = 0.0;
+            }
+
+            tick(dt) {
+                $this->wave_timer = $this->wave_timer + $dt;
+                if ($this->wave_timer >= $this->wave_pause) {
+                    $this->wave = $this->wave + 1;
+                    $this->fleet->reset($this->fleet_rows, $this->fleet_cols);
+                    -> $Playing
+                }
+            }
+
+            get_state()  { @@:("wave_complete") }
+            => $^
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state()  { @@:("paused") }
+            get_score()  { @@:($this->score) }
+            get_lives()  { @@:($this->player->get_lives()) }
+            get_wave()   { @@:($this->wave) }
+            is_paused()  { @@:(true) }
+        }
+
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+
+            get_state()  { @@:("game_over") }
+            get_score()  { @@:($this->score) }
+            get_lives()  { @@:($this->player->get_lives()) }
+            get_wave()   { @@:($this->wave) }
+            is_paused()  { @@:(false) }
+        }
+
+    domain:
+        score = 0
+        wave = 1
+        wave_timer = 0.0
+        wave_pause = 2.0
+        fleet_rows = 5
+        fleet_cols = 11
+        points_per_invader = 10
+        player = @@Player()
+        fleet = @@Fleet()
+}
