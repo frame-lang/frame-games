@@ -1,0 +1,29 @@
+000 created                            st=attract       sc=   0 wv=1 lv=3 | fl=marching  dir= 1 al= 0/55 iv=600000 lr=-1 | pl=alive        pz=0
+001 start -> playing (fleet 55, iv=600000) st=playing       sc=   0 wv=1 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=alive        pz=0
+OP  get_current_state_name=Playing
+002 pump x39 (0.61s: fleet wants_to_step) st=playing       sc=   0 wv=1 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=alive        pz=0
+SIG consume_step=true (timer was >= interval)
+003 kill idx0 (+10, pace up)           st=playing       sc=  10 wv=1 lv=3 | fl=marching  dir= 1 al=54/55 iv=590182 lr= 4 | pl=alive        pz=0
+004 kill idx1,2 (+20 more)             st=playing       sc=  30 wv=1 lv=3 | fl=marching  dir= 1 al=52/55 iv=570545 lr= 4 | pl=alive        pz=0
+005 kill dead/oob idx: NO score change st=playing       sc=  30 wv=1 lv=3 | fl=marching  dir= 1 al=52/55 iv=570545 lr= 4 | pl=alive        pz=0
+006 fleet_reached_edge -> stepping, dir flip st=playing       sc=  30 wv=1 lv=3 | fl=stepping  dir=-1 al=52/55 iv=570545 lr= 4 | pl=alive        pz=0
+007 pump x1 (one tick: stepping -> marching) st=playing       sc=  30 wv=1 lv=3 | fl=marching  dir=-1 al=52/55 iv=570545 lr= 4 | pl=alive        pz=0
+008 pause during PLAYING (push)        st=paused        sc=  30 wv=1 lv=3 | fl=marching  dir=-1 al=52/55 iv=570545 lr= 4 | pl=alive        pz=1
+009 pump x64 (1.0s paused: fleet+player frozen) st=paused        sc=  30 wv=1 lv=3 | fl=marching  dir=-1 al=52/55 iv=570545 lr= 4 | pl=alive        pz=1
+010 resume (pop -> playing)            st=playing       sc=  30 wv=1 lv=3 | fl=marching  dir=-1 al=52/55 iv=570545 lr= 4 | pl=alive        pz=0
+011 cleared fleet -> wave_complete     st=wave_complete sc= 550 wv=1 lv=3 | fl=defeated  dir=-1 al= 0/55 iv= 60000 lr=-1 | pl=alive        pz=0
+012 pause during WAVE_COMPLETE (push)  st=paused        sc= 550 wv=1 lv=3 | fl=defeated  dir=-1 al= 0/55 iv= 60000 lr=-1 | pl=alive        pz=1
+013 pump x64 (1.0s paused: wave timer frozen) st=paused        sc= 550 wv=1 lv=3 | fl=defeated  dir=-1 al= 0/55 iv= 60000 lr=-1 | pl=alive        pz=1
+014 resume (pop -> wave_complete)      st=wave_complete sc= 550 wv=1 lv=3 | fl=defeated  dir=-1 al= 0/55 iv= 60000 lr=-1 | pl=alive        pz=0
+015 pump x129 (2.0s: wave 2 begins, fleet reset) st=playing       sc= 550 wv=2 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=alive        pz=0
+016 player_hit -> player_dying         st=player_dying  sc= 550 wv=2 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=exploding    pz=0
+017 player_hit while exploding: NO-OP  st=player_dying  sc= 550 wv=2 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=exploding    pz=0
+018 pause during PLAYER_DYING (push)   st=paused        sc= 550 wv=2 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=exploding    pz=1
+019 pump x64 (1.0s paused: explosion timer frozen) st=paused        sc= 550 wv=2 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=exploding    pz=1
+020 resume (pop -> player_dying)       st=player_dying  sc= 550 wv=2 lv=3 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=exploding    pz=0
+021 pump x77 (1.2s: lives-1, invuln, -> playing) st=playing       sc= 550 wv=2 lv=2 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=invulnerable pz=0
+022 pump x96 (1.5s: invuln over -> alive) st=playing       sc= 550 wv=2 lv=2 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=alive        pz=0
+023 fleet_reached_bottom -> game_over  st=game_over     sc= 550 wv=2 lv=2 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=alive        pz=0
+024 restart -> attract (reset)         st=attract       sc=   0 wv=1 lv=2 | fl=marching  dir= 1 al=55/55 iv=600000 lr= 4 | pl=alive        pz=0
+DEATH after 3 hits: st=game_over lives=0 player=dead
+DIR bounces: start=1 after1=-1 after2=1
