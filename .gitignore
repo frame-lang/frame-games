@@ -143,3 +143,5 @@ build/spike-breakout-rb/
 build/spike-breakout-php/
 build/spike-breakout-lua/
 build/spike-breakout-java/
+build/spike-breakout-kt/
+build/spike-breakout-go/
