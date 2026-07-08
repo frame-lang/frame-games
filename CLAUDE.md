@@ -60,7 +60,7 @@ borderline/likely-wontfix), #175 (swift `init` reserved-keyword — FIXED+valida
 #178 (swift @@[persist] save/restore mechanism mismatch — FIXED+validated
 4.6.0.12). **Stealth matrix = 16/16 byte-identical — COMPLETE** (js ts python
 ruby php lua csharp java kotlin go rust c[ASan] cpp[ASan] gdscript dart swift).
-Bug harvest: 8 filed / 7 fixed (persist-machinery cluster), #174 borderline.
+Bug harvest: 8 filed / 7 fixed (persist-machinery cluster), #174 borderline. Space Invaders (5th game, orchestrator-as-HSM) = MATRIX 16/16; surfaced+fixed #179 (rust: `-> \$Transition` then `@@:return(value)` emitted return before the value assignment — Rust-only, fixed 4.6.0.15).
 NOTE: Frame has NO native types — type annotations are opaque passthrough
 strings; invalid target code from a type annotation is a wrong source string,
 NOT a framec bug (real bugs live in generated machinery). See auto-memory.
