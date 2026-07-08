@@ -1,0 +1,8 @@
+[package]
+name = "invaders-oracle"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "invaders-oracle"
+path = "src/main.rs"
