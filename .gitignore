@@ -139,3 +139,6 @@ build/spike-invaders-gd/
 build/spike-breakout-cs/
 build/spike-breakout-ts/
 build/spike-breakout-py/
+build/spike-breakout-rb/
+build/spike-breakout-php/
+build/spike-breakout-lua/
