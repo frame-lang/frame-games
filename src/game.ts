@@ -80,6 +80,16 @@ const STATE_ACCESSORS: Record<
       Guard: () => liveState(sub.guard1),
     };
   },
+  breakout: (m) => {
+    // ball + bricks are owned children; the transition -> (vx,vy) $InFlight
+    // threads enter-args into the Ball's $InFlight $>(vx,vy) handler.
+    const sub = m as { ball?: unknown; bricks?: unknown };
+    return {
+      Breakout: () => liveState(m),
+      Ball: () => liveState(sub.ball),
+      BrickField: () => liveState(sub.bricks),
+    };
+  },
   invaders: (m) => {
     // player + fleet are owned children; the orchestrator itself is an HSM
     // ($InGame parent over $Playing/$PlayerDying/$WaveComplete).

@@ -12,6 +12,8 @@ import { shooter } from "../games/shooter/src";
 import shooterManifest from "../games/shooter/game.json";
 import { stealth } from "../games/stealth/src";
 import stealthManifest from "../games/stealth/game.json";
+import { breakout } from "../games/breakout/src";
+import breakoutManifest from "../games/breakout/game.json";
 import { invaders } from "../games/invaders/src";
 import invadersManifest from "../games/invaders/game.json";
 import type { GameDef } from "./game-def";
@@ -97,6 +99,10 @@ export const GAMES: Record<string, GameEntry> = {
   invaders: {
     def: invaders,
     manifest: invadersManifest as GameManifest,
+  },
+  breakout: {
+    def: breakout,
+    manifest: breakoutManifest as GameManifest,
   },
 };
 

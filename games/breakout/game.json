@@ -1,0 +1,34 @@
+{
+  "id": "breakout",
+  "title": "Breakout",
+  "summary": "Paddle, ball, and a wall of bricks — but the Frame lesson is a mechanism the other games don't use: enter-arguments. When the ball launches, the transition carries the velocity into the target state (`-> (vx, vy) $InFlight`), where a `$>(vx, vy)` handler seeds the ball's state-local velocity. The ball is its own sub-machine; the brick field its own system.",
+  "teaches": "Enter-arguments threaded through a transition into a state's $>(params) · a Ball sub-machine (attached → in-flight → lost/respawn) · a BrickField system · push$/pop$ pause",
+  "controls": "A/D or ←/→ move paddle · hold to aim · SPACE launch · P pause · SPACE start · R restart",
+  "mobileButtons": [
+    { "label": "◀", "key": "ArrowLeft",  "hold": true,  "position": "left" },
+    { "label": "▶", "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "LAUNCH", "key": "Space",  "hold": false, "position": "bottom" },
+    { "label": "⏸", "key": "KeyP",        "hold": false, "position": "bottom" },
+    { "label": "↻", "key": "KeyR",        "hold": false, "position": "bottom" }
+  ],
+  "machines": [
+    {
+      "system": "Breakout",
+      "title": "Breakout — the game flow",
+      "blurb": "$Attract → $Playing → $LevelClear / $GameOver, with pause as a push$/pop$ interrupt. Owns the Ball and BrickField children; routes paddle/wall/brick events to them and reads their state back. $LevelClear's $>() bumps the level, then re-racks the wall and re-attaches the ball for the next round."
+    },
+    {
+      "system": "Ball",
+      "title": "Ball — a sub-machine with enter-arguments",
+      "blurb": "$AttachedToPaddle → $InFlight → $Lost → back to attached. The launch is the showcase: `launch(vx, vy) { -> (vx, vy) $InFlight }` — the transition carries the velocity as enter-arguments into $InFlight's `$>(vx, vy)` handler, which seeds the state-local $.vx/$.vy. $Lost runs a 2-second respawn timer the scene reads as a fade-in."
+    },
+    {
+      "system": "BrickField",
+      "title": "BrickField — the wall",
+      "blurb": "A single $Active state over a list of bricks. break_brick(i) knocks one out and decrements the count; is_cleared() drives the orchestrator's $LevelClear transition. The scene owns brick geometry and collision; the field owns which bricks survive."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "Phaser · JS" }
+  ]
+}
