@@ -1,0 +1,25 @@
+000 created                            st=attract     sc=   0 lv=3 lvl=1 br=40 | ball=attached  vx=     0 vy=     0 rp=   -
+001 start -> playing, ball attached    st=playing     sc=   0 lv=3 lvl=1 br=40 | ball=attached  vx=     0 vy=     0 rp=1000
+OP  get_current_state_name=Playing
+002 launch(3.5,-4.25) -> in_flight [ENTER-ARGS] st=playing     sc=   0 lv=3 lvl=1 br=40 | ball=in_flight vx=  3500 vy= -4250 rp=1000
+003 wall_bounce_x -> vx negated        st=playing     sc=   0 lv=3 lvl=1 br=40 | ball=in_flight vx= -3500 vy= -4250 rp=1000
+004 wall_bounce_y -> vy negated        st=playing     sc=   0 lv=3 lvl=1 br=40 | ball=in_flight vx= -3500 vy=  4250 rp=1000
+005 paddle_hit -> set_velocity(2.75,-5.5) st=playing     sc=   0 lv=3 lvl=1 br=40 | ball=in_flight vx=  2750 vy= -5500 rp=1000
+006 brick_hit(0): +10, vy flip, broken st=playing     sc=  10 lv=3 lvl=1 br=39 | ball=in_flight vx=  2750 vy=  5500 rp=1000
+007 brick_hit dead/oob: NO score change st=playing     sc=  10 lv=3 lvl=1 br=39 | ball=in_flight vx=  2750 vy=  5500 rp=1000
+008 brick_hit(1,2): +20                st=playing     sc=  30 lv=3 lvl=1 br=37 | ball=in_flight vx=  2750 vy=  5500 rp=1000
+009 pause during PLAYING (push)        st=paused      sc=  30 lv=3 lvl=1 br=37 | ball=in_flight vx=  2750 vy=  5500 rp=   -
+010 pump x64 (1.0s paused: ball frozen) st=paused      sc=  30 lv=3 lvl=1 br=37 | ball=in_flight vx=  2750 vy=  5500 rp=   -
+011 resume (pop -> playing)            st=playing     sc=  30 lv=3 lvl=1 br=37 | ball=in_flight vx=  2750 vy=  5500 rp=1000
+012 ball_fell_off -> lives-1, ball lost st=playing     sc=  30 lv=2 lvl=1 br=37 | ball=lost      vx=     0 vy=     0 rp=   0
+013 pump x64 (1.0s: respawn progress ~0.5) st=playing     sc=  30 lv=2 lvl=1 br=37 | ball=lost      vx=     0 vy=     0 rp= 500
+014 pump x63 (just before 2.0s: still lost) st=playing     sc=  30 lv=2 lvl=1 br=37 | ball=lost      vx=     0 vy=     0 rp= 992
+015 pump x1 (tick 2.0s: ball -> attached) st=playing     sc=  30 lv=2 lvl=1 br=37 | ball=attached  vx=     0 vy=     0 rp=1000
+016 re-launch (fresh in_flight)        st=playing     sc=  30 lv=2 lvl=1 br=37 | ball=in_flight vx=  3500 vy= -4250 rp=1000
+017 cleared wall -> level_clear (lvl 2) st=level_clear sc= 400 lv=2 lvl=2 br= 0 | ball=in_flight vx=  3500 vy=  4250 rp=   -
+018 start -> playing, fresh wall of 40 st=playing     sc= 400 lv=2 lvl=2 br=40 | ball=in_flight vx=  3500 vy=  4250 rp=1000
+019 fell off -> lives 1                st=playing     sc= 400 lv=1 lvl=2 br=40 | ball=lost      vx=     0 vy=     0 rp=   0
+020 fell off -> lives 0 -> game_over   st=game_over   sc= 400 lv=0 lvl=2 br=40 | ball=lost      vx=     0 vy=     0 rp=   -
+021 restart -> attract (reset)         st=attract     sc=   0 lv=3 lvl=1 br=40 | ball=lost      vx=     0 vy=     0 rp=   -
+PAUSE respawn frozen: before=250 after=250 ball=lost (paused ticks must not advance the ball)
+BRICK is_broken: fresh0=false oobNeg=true oobBig=true (expect false, true, true)
