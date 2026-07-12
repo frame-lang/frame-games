@@ -1,0 +1,409 @@
+@@[target("lua")]
+
+
+@@system Locomotion {
+
+    interface:
+        tick(dt: number)
+
+        press_left()
+        press_right()
+        release_horizontal()
+        press_sprint()
+        release_sprint()
+        press_jump()
+        release_jump()
+
+        ground_contact()
+        left_ground()
+
+        get_state(): string
+        wants_velocity_x(): number
+        wants_jump_impulse(): boolean
+        consume_jump_impulse()
+        facing(): number
+        is_grounded(): boolean
+        is_in_air(): boolean
+
+    machine:
+        $Idle {
+            press_left() {
+                @@:self.input_x = -1
+                -> $Walking
+            }
+            press_right() {
+                @@:self.input_x = 1
+                -> $Walking
+            }
+            press_jump() {
+                @@:self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): string         { @@:("idle") }
+            wants_velocity_x(): number    { @@:(0.0) }
+            wants_jump_impulse(): boolean   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): number                { @@:(@@:self.face) }
+            is_grounded(): boolean          { @@:(true) }
+            is_in_air(): boolean            { @@:(false) }
+        }
+
+        $Walking {
+            press_left() {
+                @@:self.input_x = -1
+                @@:self.face = -1
+            }
+            press_right() {
+                @@:self.input_x = 1
+                @@:self.face = 1
+            }
+            release_horizontal() {
+                @@:self.input_x = 0
+                -> $Idle
+            }
+            press_sprint() {
+                -> $Running
+            }
+            press_jump() {
+                @@:self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): string         { @@:("walking") }
+            wants_velocity_x(): number    { @@:(@@:self.input_x * @@:self.walk_speed) }
+            wants_jump_impulse(): boolean   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): number                { @@:(@@:self.face) }
+            is_grounded(): boolean          { @@:(true) }
+            is_in_air(): boolean            { @@:(false) }
+        }
+
+        $Running {
+            press_left() {
+                @@:self.input_x = -1
+                @@:self.face = -1
+            }
+            press_right() {
+                @@:self.input_x = 1
+                @@:self.face = 1
+            }
+            release_horizontal() {
+                @@:self.input_x = 0
+                -> $Walking
+            }
+            release_sprint() {
+                -> $Walking
+            }
+            press_jump() {
+                @@:self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): string         { @@:("running") }
+            wants_velocity_x(): number    { @@:(@@:self.input_x * @@:self.run_speed) }
+            wants_jump_impulse(): boolean   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): number                { @@:(@@:self.face) }
+            is_grounded(): boolean          { @@:(true) }
+            is_in_air(): boolean            { @@:(false) }
+        }
+
+        $Jumping {
+            $.jump_held_time: number = 0.0
+            $.jump_released: boolean = false
+
+            tick(dt: number) {
+                if not $.jump_released {
+                    $.jump_held_time = $.jump_held_time + dt
+                }
+                if $.jump_held_time >= 0.35 {
+                    -> $Falling
+                }
+            }
+
+            press_left() {
+                @@:self.input_x = -1
+                @@:self.face = -1
+            }
+            press_right() {
+                @@:self.input_x = 1
+                @@:self.face = 1
+            }
+            release_horizontal() {
+                @@:self.input_x = 0
+            }
+            release_jump() {
+                $.jump_released = true
+            }
+            ground_contact() {
+                -> $Landing
+            }
+
+            get_state(): string         { @@:("jumping") }
+            wants_velocity_x(): number    { @@:(@@:self.input_x * @@:self.air_speed) }
+            wants_jump_impulse(): boolean   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): number                { @@:(@@:self.face) }
+            is_grounded(): boolean          { @@:(false) }
+            is_in_air(): boolean            { @@:(true) }
+        }
+
+        $Falling {
+            press_left() {
+                @@:self.input_x = -1
+                @@:self.face = -1
+            }
+            press_right() {
+                @@:self.input_x = 1
+                @@:self.face = 1
+            }
+            release_horizontal() {
+                @@:self.input_x = 0
+            }
+            ground_contact() {
+                -> $Landing
+            }
+
+            get_state(): string         { @@:("falling") }
+            wants_velocity_x(): number    { @@:(@@:self.input_x * @@:self.air_speed) }
+            wants_jump_impulse(): boolean   { @@:(false) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): number                { @@:(@@:self.face) }
+            is_grounded(): boolean          { @@:(false) }
+            is_in_air(): boolean            { @@:(true) }
+        }
+
+        $Landing {
+            $.timer: number = 0.0
+            $.duration: number = 0.08
+
+            $>() {
+                @@:self.pending_jump = false
+            }
+
+            tick(dt: number) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration {
+                    if @@:self.input_x ~= 0 {
+                        -> $Walking
+                    } else {
+                        -> $Idle
+                    }
+                }
+            }
+
+            press_left() {
+                @@:self.input_x = -1
+                @@:self.face = -1
+            }
+            press_right() {
+                @@:self.input_x = 1
+                @@:self.face = 1
+            }
+            release_horizontal() {
+                @@:self.input_x = 0
+            }
+            press_jump() {
+                @@:self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): string         { @@:("landing") }
+            wants_velocity_x(): number    { @@:(@@:self.input_x * @@:self.walk_speed * 0.6) }
+            wants_jump_impulse(): boolean   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): number                { @@:(@@:self.face) }
+            is_grounded(): boolean          { @@:(true) }
+            is_in_air(): boolean            { @@:(false) }
+        }
+
+    domain:
+        input_x: number = 0
+        face: number = 1
+        pending_jump: boolean = false
+        walk_speed: number = 140.0
+        run_speed: number = 260.0
+        air_speed: number = 180.0
+}
+
+@@system PowerUp {
+
+    interface:
+        pickup_mushroom()
+        pickup_flower()
+        take_damage(): boolean
+        reset()
+        get_form(): string
+        hit_box_height(): number
+        can_shoot(): boolean
+
+    machine:
+        $Small {
+            pickup_mushroom() {
+                -> $Big
+            }
+            pickup_flower() {
+                -> $Fiery
+            }
+            take_damage(): boolean {
+                @@:(false)
+            }
+            reset() {
+            }
+
+            get_form(): string      { @@:("small") }
+            hit_box_height(): number   { @@:(24) }
+            can_shoot(): boolean       { @@:(false) }
+        }
+
+        $Big {
+            pickup_mushroom() {
+            }
+            pickup_flower() {
+                -> $Fiery
+            }
+            take_damage(): boolean {
+                @@:(true)
+                -> $Small
+            }
+            reset() {
+                -> $Small
+            }
+
+            get_form(): string      { @@:("big") }
+            hit_box_height(): number   { @@:(48) }
+            can_shoot(): boolean       { @@:(false) }
+        }
+
+        $Fiery {
+            pickup_mushroom() {
+            }
+            pickup_flower() {
+            }
+            take_damage(): boolean {
+                @@:(true)
+                -> $Big
+            }
+            reset() {
+                -> $Small
+            }
+
+            get_form(): string      { @@:("fiery") }
+            hit_box_height(): number   { @@:(48) }
+            can_shoot(): boolean       { @@:(true) }
+        }
+}
+
+@@[main]
+@@system Platformer {
+
+    operations:
+        get_current_state_name(): string { @@:(@@:system.state.name) }
+
+    interface:
+        tick(dt: number)
+
+        press_left()
+        press_right()
+        release_horizontal()
+        press_sprint()
+        release_sprint()
+        press_jump()
+        release_jump()
+
+        ground_contact()
+        left_ground()
+
+        pickup_mushroom()
+        pickup_flower()
+        take_damage(): boolean
+
+        pause()
+        resume()
+        is_paused(): boolean
+
+        locomotion_state(): string
+        form(): string
+        wants_velocity_x(): number
+        wants_jump_impulse(): boolean
+        consume_jump_impulse()
+        facing(): number
+        is_grounded(): boolean
+        is_in_air(): boolean
+        hit_box_height(): number
+        can_shoot(): boolean
+
+    machine:
+        $Playing {
+            tick(dt: number) {
+                @@:self.loco.tick(dt)
+            }
+
+            press_left()            { @@:self.loco.press_left() }
+            press_right()           { @@:self.loco.press_right() }
+            release_horizontal()    { @@:self.loco.release_horizontal() }
+            press_sprint()          { @@:self.loco.press_sprint() }
+            release_sprint()        { @@:self.loco.release_sprint() }
+            press_jump()            { @@:self.loco.press_jump() }
+            release_jump()          { @@:self.loco.release_jump() }
+            ground_contact()        { @@:self.loco.ground_contact() }
+            left_ground()           { @@:self.loco.left_ground() }
+
+            pickup_mushroom()       { @@:self.power.pickup_mushroom() }
+            pickup_flower()         { @@:self.power.pickup_flower() }
+
+            take_damage(): boolean {
+                @@:(@@:self.power.take_damage())
+            }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            locomotion_state(): string  { @@:(@@:self.loco.get_state()) }
+            form(): string              { @@:(@@:self.power.get_form()) }
+            wants_velocity_x(): number   { @@:(@@:self.loco.wants_velocity_x()) }
+            wants_jump_impulse(): boolean  { @@:(@@:self.loco.wants_jump_impulse()) }
+            consume_jump_impulse()      { @@:self.loco.consume_jump_impulse() }
+            facing(): number               { @@:(@@:self.loco.facing()) }
+            is_grounded(): boolean         { @@:(@@:self.loco.is_grounded()) }
+            is_in_air(): boolean           { @@:(@@:self.loco.is_in_air()) }
+            hit_box_height(): number       { @@:(@@:self.power.hit_box_height()) }
+            can_shoot(): boolean           { @@:(@@:self.power.can_shoot()) }
+            is_paused(): boolean           { @@:(false) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            locomotion_state(): string  { @@:(@@:self.loco.get_state()) }
+            form(): string              { @@:(@@:self.power.get_form()) }
+            wants_velocity_x(): number   { @@:(@@:self.loco.wants_velocity_x()) }
+            wants_jump_impulse(): boolean  { @@:(@@:self.loco.wants_jump_impulse()) }
+            facing(): number               { @@:(@@:self.loco.facing()) }
+            is_grounded(): boolean         { @@:(@@:self.loco.is_grounded()) }
+            is_in_air(): boolean           { @@:(@@:self.loco.is_in_air()) }
+            hit_box_height(): number       { @@:(@@:self.power.hit_box_height()) }
+            can_shoot(): boolean           { @@:(@@:self.power.can_shoot()) }
+            is_paused(): boolean           { @@:(true) }
+        }
+
+    domain:
+        loco: Locomotion = @@Locomotion()
+        power: PowerUp = @@PowerUp()
+}

@@ -1,0 +1,41 @@
+Godot Engine v4.6.2.stable.official.71f334935 - https://godotengine.org
+
+000 created (Playing / idle / small)         st=Playing loco=idle     form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+OP  get_current_state_name=Playing
+001 press_right -> walking, face+1           st=Playing loco=walking  form=small vx= 140000 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+002 press_sprint -> running (vx 260)         st=Playing loco=running  form=small vx= 260000 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+003 release_sprint -> walking (vx 140)       st=Playing loco=walking  form=small vx= 140000 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+004 press_left -> face-1, vx -140            st=Playing loco=walking  form=small vx=-140000 face=-1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+005 release_horizontal -> idle               st=Playing loco=idle     form=small vx=      0 face=-1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+006 press_jump -> jumping, jimp=1            st=Playing loco=jumping  form=small vx=      0 face=-1 gnd=0 air=1 jimp=1 hbox=24 shoot=0 paused=0
+007 consume_jump_impulse -> jimp=0           st=Playing loco=jumping  form=small vx=      0 face=-1 gnd=0 air=1 jimp=0 hbox=24 shoot=0 paused=0
+008 press_right in air -> vx 180 (air_speed) st=Playing loco=jumping  form=small vx= 180000 face= 1 gnd=0 air=1 jimp=0 hbox=24 shoot=0 paused=0
+009 pump x22 (0.34s held: still jumping)     st=Playing loco=jumping  form=small vx= 180000 face= 1 gnd=0 air=1 jimp=0 hbox=24 shoot=0 paused=0
+010 pump x1 (tick 23 (0.35s) -> falling)     st=Playing loco=falling  form=small vx= 180000 face= 1 gnd=0 air=1 jimp=0 hbox=24 shoot=0 paused=0
+011 ground_contact -> landing                st=Playing loco=landing  form=small vx=  84000 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+012 pump x5 (0.078s: still landing)          st=Playing loco=landing  form=small vx=  84000 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+013 pump x1 (tick 6 (0.08s): input_x!=0 -> walking) st=Playing loco=walking  form=small vx= 140000 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+014 release_horizontal -> idle               st=Playing loco=idle     form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+015 press_jump -> jumping (fresh)            st=Playing loco=jumping  form=small vx=      0 face= 1 gnd=0 air=1 jimp=1 hbox=24 shoot=0 paused=0
+016 release_jump -> timer frozen             st=Playing loco=jumping  form=small vx=      0 face= 1 gnd=0 air=1 jimp=1 hbox=24 shoot=0 paused=0
+017 pump x40 (0.625s released: STILL jumping (no auto-fall)) st=Playing loco=jumping  form=small vx=      0 face= 1 gnd=0 air=1 jimp=1 hbox=24 shoot=0 paused=0
+018 ground_contact -> landing (input_x=0)    st=Playing loco=landing  form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+019 pump x6 (0.08s: input_x==0 -> idle)      st=Playing loco=idle     form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+020 left_ground -> falling (walked off)      st=Playing loco=falling  form=small vx=      0 face= 1 gnd=0 air=1 jimp=0 hbox=24 shoot=0 paused=0
+021 ground_contact -> landing                st=Playing loco=landing  form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+022 pump x6 (recover -> idle)                st=Playing loco=idle     form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+023 pickup_mushroom -> big (hbox 48)         st=Playing loco=idle     form=big   vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=0 paused=0
+024 pickup_flower -> fiery (can_shoot 1)     st=Playing loco=idle     form=fiery vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=1 paused=0
+025 take_damage -> big [ret-then-transition] st=Playing loco=idle     form=big   vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=0 paused=0
+026 take_damage -> small (hbox 24)           st=Playing loco=idle     form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+027 take_damage in small -> no transition    st=Playing loco=idle     form=small vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=24 shoot=0 paused=0
+028 pickup_flower from small -> fiery        st=Playing loco=idle     form=fiery vx=      0 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=1 paused=0
+RET take_damage(fiery)=1 form_now=big (expect 1 / big)
+RET take_damage(big)=1 form_now=small (expect 1 / small)
+RET take_damage(small)=0 form_now=small (expect 0 / small)
+029 re-arm: big + walking before pause       st=Playing loco=walking  form=big   vx= 140000 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=0 paused=0
+030 pause -> Paused (push), paused=1         st=Paused  loco=walking  form=big   vx= 140000 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=0 paused=1
+031 pump x64 (1.0s paused: locomotion frozen) st=Paused  loco=walking  form=big   vx= 140000 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=0 paused=1
+032 resume -> Playing (pop), paused=0        st=Playing loco=walking  form=big   vx= 140000 face= 1 gnd=1 air=0 jimp=0 hbox=48 shoot=0 paused=0
+ORTHO loco stable across powerups: before=running after=running form=fiery (expect running/running/fiery)
+PAUSE ticks dropped: resumed=jumping at22=jumping at23=falling (expect jumping/jumping/falling)

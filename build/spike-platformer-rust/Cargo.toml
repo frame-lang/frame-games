@@ -1,0 +1,7 @@
+[package]
+name="platformer-oracle"
+version="0.1.0"
+edition="2021"
+[[bin]]
+name="platformer-oracle"
+path="src/main.rs"

@@ -151,3 +151,19 @@ build/spike-breakout-rust/
 build/spike-breakout-c/
 build/spike-breakout-cpp/
 build/spike-breakout-gd/
+# Platformer oracle spikes (7th game): source+driver+trace force-added; generated/compiled local only.
+build/spike-platformer-cs/
+build/spike-platformer-ts/
+build/spike-platformer-py/
+build/spike-platformer-rb/
+build/spike-platformer-php/
+build/spike-platformer-lua/
+build/spike-platformer-java/
+build/spike-platformer-kt/
+build/spike-platformer-go/
+build/spike-platformer-dart/
+build/spike-platformer-swift/
+build/spike-platformer-rust/
+build/spike-platformer-c/
+build/spike-platformer-cpp/
+build/spike-platformer-gd/

@@ -1,0 +1,35 @@
+{
+  "id": "platformer",
+  "title": "Platformer",
+  "summary": "How you move and what form you are are two independent questions. A single HSM that combined them ($SmallJumping, $BigFalling, $FieryRunning, …) would explode combinatorially. Frame's answer is orthogonal composition: one orchestrator owns two peer sub-machines — Locomotion (idle/walk/run/jump/fall/land) and PowerUp (small/big/fiery) — and forwards each input to whichever child owns it. Two additive FSMs, not one multiplicative one.",
+  "teaches": "Orthogonal-state composition vs the matrix-HSM explosion · two independent sibling sub-machines (motion + form) under one orchestrator facade · a child interface call as a handler's return value · push$/pop$ pause that freezes the whole rig",
+  "controls": "A/D or ←/→ move · Shift/hold run · Space jump (hold = higher) · grab mushroom/flower · P pause · R reset pickups",
+  "mobileButtons": [
+    { "label": "◀", "key": "ArrowLeft",  "hold": true,  "position": "left" },
+    { "label": "▶", "key": "ArrowRight", "hold": true,  "position": "left" },
+    { "label": "RUN", "key": "ShiftLeft", "hold": true,  "position": "left" },
+    { "label": "JUMP", "key": "Space",   "hold": false, "position": "bottom" },
+    { "label": "⏸", "key": "KeyP",        "hold": false, "position": "bottom" },
+    { "label": "↻", "key": "KeyR",        "hold": false, "position": "bottom" }
+  ],
+  "machines": [
+    {
+      "system": "Platformer",
+      "title": "Platformer — the orchestrator facade",
+      "blurb": "$Playing forwards every input to whichever child owns it (move/jump → loco, pickups → power) and reads their combined state back. take_damage() is the showcase of a child call AS a return value: `@@:(this.power.take_damage())` marshals the PowerUp's bool result back out. pause() is a push$/pop$ that freezes both children at once."
+    },
+    {
+      "system": "Locomotion",
+      "title": "Locomotion — how you move",
+      "blurb": "$Idle → $Walking → $Running, and $Jumping → $Falling → $Landing. $Jumping holds state-local $.jump_held_time (auto-falls at 0.35s unless release_jump freezes it — variable-height jump) and $Landing a $.timer recovery window with a $>() enter handler that clears the pending jump. The scene reads wants_velocity_x()/is_grounded() each frame."
+    },
+    {
+      "system": "PowerUp",
+      "title": "PowerUp — what form you are",
+      "blurb": "$Small → $Big → $Fiery via mushroom/flower, and take_damage() steps back down one form (Fiery→Big→Small), returning whether the hit was absorbed. Fully orthogonal to Locomotion: you can be a running Fiery or an idle Small — the two machines never enumerate each other's states."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "Phaser · JS" }
+  ]
+}

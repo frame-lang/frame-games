@@ -1,0 +1,409 @@
+@@[target("cpp")]
+
+
+@@system Locomotion {
+
+    interface:
+        tick(dt: double)
+
+        press_left()
+        press_right()
+        release_horizontal()
+        press_sprint()
+        release_sprint()
+        press_jump()
+        release_jump()
+
+        ground_contact()
+        left_ground()
+
+        get_state(): std::string
+        wants_velocity_x(): double
+        wants_jump_impulse(): bool
+        consume_jump_impulse()
+        facing(): int
+        is_grounded(): bool
+        is_in_air(): bool
+
+    machine:
+        $Idle {
+            press_left() {
+                @@:self.input_x = -1;
+                -> $Walking
+            }
+            press_right() {
+                @@:self.input_x = 1;
+                -> $Walking
+            }
+            press_jump() {
+                @@:self.pending_jump = true;
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): std::string         { @@:("idle") }
+            wants_velocity_x(): double    { @@:(0.0) }
+            wants_jump_impulse(): bool   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): int                { @@:(@@:self.face) }
+            is_grounded(): bool          { @@:(true) }
+            is_in_air(): bool            { @@:(false) }
+        }
+
+        $Walking {
+            press_left() {
+                @@:self.input_x = -1;
+                @@:self.face = -1;
+            }
+            press_right() {
+                @@:self.input_x = 1;
+                @@:self.face = 1;
+            }
+            release_horizontal() {
+                @@:self.input_x = 0;
+                -> $Idle
+            }
+            press_sprint() {
+                -> $Running
+            }
+            press_jump() {
+                @@:self.pending_jump = true;
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): std::string         { @@:("walking") }
+            wants_velocity_x(): double    { @@:(@@:self.input_x * @@:self.walk_speed) }
+            wants_jump_impulse(): bool   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): int                { @@:(@@:self.face) }
+            is_grounded(): bool          { @@:(true) }
+            is_in_air(): bool            { @@:(false) }
+        }
+
+        $Running {
+            press_left() {
+                @@:self.input_x = -1;
+                @@:self.face = -1;
+            }
+            press_right() {
+                @@:self.input_x = 1;
+                @@:self.face = 1;
+            }
+            release_horizontal() {
+                @@:self.input_x = 0;
+                -> $Walking
+            }
+            release_sprint() {
+                -> $Walking
+            }
+            press_jump() {
+                @@:self.pending_jump = true;
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): std::string         { @@:("running") }
+            wants_velocity_x(): double    { @@:(@@:self.input_x * @@:self.run_speed) }
+            wants_jump_impulse(): bool   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): int                { @@:(@@:self.face) }
+            is_grounded(): bool          { @@:(true) }
+            is_in_air(): bool            { @@:(false) }
+        }
+
+        $Jumping {
+            $.jump_held_time: double = 0.0
+            $.jump_released: bool = false
+
+            tick(dt: double) {
+                if (!$.jump_released) {
+                    $.jump_held_time = $.jump_held_time + dt;
+                }
+                if ($.jump_held_time >= 0.35) {
+                    -> $Falling
+                }
+            }
+
+            press_left() {
+                @@:self.input_x = -1;
+                @@:self.face = -1;
+            }
+            press_right() {
+                @@:self.input_x = 1;
+                @@:self.face = 1;
+            }
+            release_horizontal() {
+                @@:self.input_x = 0;
+            }
+            release_jump() {
+                $.jump_released = true;
+            }
+            ground_contact() {
+                -> $Landing
+            }
+
+            get_state(): std::string         { @@:("jumping") }
+            wants_velocity_x(): double    { @@:(@@:self.input_x * @@:self.air_speed) }
+            wants_jump_impulse(): bool   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): int                { @@:(@@:self.face) }
+            is_grounded(): bool          { @@:(false) }
+            is_in_air(): bool            { @@:(true) }
+        }
+
+        $Falling {
+            press_left() {
+                @@:self.input_x = -1;
+                @@:self.face = -1;
+            }
+            press_right() {
+                @@:self.input_x = 1;
+                @@:self.face = 1;
+            }
+            release_horizontal() {
+                @@:self.input_x = 0;
+            }
+            ground_contact() {
+                -> $Landing
+            }
+
+            get_state(): std::string         { @@:("falling") }
+            wants_velocity_x(): double    { @@:(@@:self.input_x * @@:self.air_speed) }
+            wants_jump_impulse(): bool   { @@:(false) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): int                { @@:(@@:self.face) }
+            is_grounded(): bool          { @@:(false) }
+            is_in_air(): bool            { @@:(true) }
+        }
+
+        $Landing {
+            $.timer: double = 0.0
+            $.duration: double = 0.08
+
+            $>() {
+                @@:self.pending_jump = false;
+            }
+
+            tick(dt: double) {
+                $.timer = $.timer + dt;
+                if ($.timer >= $.duration) {
+                    if (@@:self.input_x != 0) {
+                        -> $Walking
+                    } else {
+                        -> $Idle
+                    }
+                }
+            }
+
+            press_left() {
+                @@:self.input_x = -1;
+                @@:self.face = -1;
+            }
+            press_right() {
+                @@:self.input_x = 1;
+                @@:self.face = 1;
+            }
+            release_horizontal() {
+                @@:self.input_x = 0;
+            }
+            press_jump() {
+                @@:self.pending_jump = true;
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): std::string         { @@:("landing") }
+            wants_velocity_x(): double    { @@:(@@:self.input_x * @@:self.walk_speed * 0.6) }
+            wants_jump_impulse(): bool   { @@:(@@:self.pending_jump) }
+            consume_jump_impulse()       { @@:self.pending_jump = false }
+            facing(): int                { @@:(@@:self.face) }
+            is_grounded(): bool          { @@:(true) }
+            is_in_air(): bool            { @@:(false) }
+        }
+
+    domain:
+        input_x: int = 0
+        face: int = 1
+        pending_jump: bool = false
+        walk_speed: double = 140.0
+        run_speed: double = 260.0
+        air_speed: double = 180.0
+}
+
+@@system PowerUp {
+
+    interface:
+        pickup_mushroom()
+        pickup_flower()
+        take_damage(): bool
+        reset()
+        get_form(): std::string
+        hit_box_height(): int
+        can_shoot(): bool
+
+    machine:
+        $Small {
+            pickup_mushroom() {
+                -> $Big
+            }
+            pickup_flower() {
+                -> $Fiery
+            }
+            take_damage(): bool {
+                @@:(false)
+            }
+            reset() {
+            }
+
+            get_form(): std::string      { @@:("small") }
+            hit_box_height(): int   { @@:(24) }
+            can_shoot(): bool       { @@:(false) }
+        }
+
+        $Big {
+            pickup_mushroom() {
+            }
+            pickup_flower() {
+                -> $Fiery
+            }
+            take_damage(): bool {
+                @@:(true)
+                -> $Small
+            }
+            reset() {
+                -> $Small
+            }
+
+            get_form(): std::string      { @@:("big") }
+            hit_box_height(): int   { @@:(48) }
+            can_shoot(): bool       { @@:(false) }
+        }
+
+        $Fiery {
+            pickup_mushroom() {
+            }
+            pickup_flower() {
+            }
+            take_damage(): bool {
+                @@:(true)
+                -> $Big
+            }
+            reset() {
+                -> $Small
+            }
+
+            get_form(): std::string      { @@:("fiery") }
+            hit_box_height(): int   { @@:(48) }
+            can_shoot(): bool       { @@:(true) }
+        }
+}
+
+@@[main]
+@@system Platformer {
+
+    operations:
+        get_current_state_name(): std::string { @@:(@@:system.state.name) }
+
+    interface:
+        tick(dt: double)
+
+        press_left()
+        press_right()
+        release_horizontal()
+        press_sprint()
+        release_sprint()
+        press_jump()
+        release_jump()
+
+        ground_contact()
+        left_ground()
+
+        pickup_mushroom()
+        pickup_flower()
+        take_damage(): bool
+
+        pause()
+        resume()
+        is_paused(): bool
+
+        locomotion_state(): std::string
+        form(): std::string
+        wants_velocity_x(): double
+        wants_jump_impulse(): bool
+        consume_jump_impulse()
+        facing(): int
+        is_grounded(): bool
+        is_in_air(): bool
+        hit_box_height(): int
+        can_shoot(): bool
+
+    machine:
+        $Playing {
+            tick(dt: double) {
+                @@:self.loco.tick(dt);
+            }
+
+            press_left()            { @@:self.loco.press_left() }
+            press_right()           { @@:self.loco.press_right() }
+            release_horizontal()    { @@:self.loco.release_horizontal() }
+            press_sprint()          { @@:self.loco.press_sprint() }
+            release_sprint()        { @@:self.loco.release_sprint() }
+            press_jump()            { @@:self.loco.press_jump() }
+            release_jump()          { @@:self.loco.release_jump() }
+            ground_contact()        { @@:self.loco.ground_contact() }
+            left_ground()           { @@:self.loco.left_ground() }
+
+            pickup_mushroom()       { @@:self.power.pickup_mushroom() }
+            pickup_flower()         { @@:self.power.pickup_flower() }
+
+            take_damage(): bool {
+                @@:(@@:self.power.take_damage())
+            }
+
+            pause() {
+                push$ -> $Paused
+            }
+
+            locomotion_state(): std::string  { @@:(@@:self.loco.get_state()) }
+            form(): std::string              { @@:(@@:self.power.get_form()) }
+            wants_velocity_x(): double   { @@:(@@:self.loco.wants_velocity_x()) }
+            wants_jump_impulse(): bool  { @@:(@@:self.loco.wants_jump_impulse()) }
+            consume_jump_impulse()      { @@:self.loco.consume_jump_impulse() }
+            facing(): int               { @@:(@@:self.loco.facing()) }
+            is_grounded(): bool         { @@:(@@:self.loco.is_grounded()) }
+            is_in_air(): bool           { @@:(@@:self.loco.is_in_air()) }
+            hit_box_height(): int       { @@:(@@:self.power.hit_box_height()) }
+            can_shoot(): bool           { @@:(@@:self.power.can_shoot()) }
+            is_paused(): bool           { @@:(false) }
+        }
+
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            locomotion_state(): std::string  { @@:(@@:self.loco.get_state()) }
+            form(): std::string              { @@:(@@:self.power.get_form()) }
+            wants_velocity_x(): double   { @@:(@@:self.loco.wants_velocity_x()) }
+            wants_jump_impulse(): bool  { @@:(@@:self.loco.wants_jump_impulse()) }
+            facing(): int               { @@:(@@:self.loco.facing()) }
+            is_grounded(): bool         { @@:(@@:self.loco.is_grounded()) }
+            is_in_air(): bool           { @@:(@@:self.loco.is_in_air()) }
+            hit_box_height(): int       { @@:(@@:self.power.hit_box_height()) }
+            can_shoot(): bool           { @@:(@@:self.power.can_shoot()) }
+            is_paused(): bool           { @@:(true) }
+        }
+
+    domain:
+        loco: Locomotion = @@Locomotion()
+        power: PowerUp = @@PowerUp()
+}

@@ -16,6 +16,8 @@ import { breakout } from "../games/breakout/src";
 import breakoutManifest from "../games/breakout/game.json";
 import { invaders } from "../games/invaders/src";
 import invadersManifest from "../games/invaders/game.json";
+import { platformer } from "../games/platformer/src";
+import platformerManifest from "../games/platformer/game.json";
 import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
@@ -103,6 +105,10 @@ export const GAMES: Record<string, GameEntry> = {
   breakout: {
     def: breakout,
     manifest: breakoutManifest as GameManifest,
+  },
+  platformer: {
+    def: platformer,
+    manifest: platformerManifest as GameManifest,
   },
 };
 

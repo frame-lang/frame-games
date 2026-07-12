@@ -90,6 +90,16 @@ const STATE_ACCESSORS: Record<
       BrickField: () => liveState(sub.bricks),
     };
   },
+  platformer: (m) => {
+    // loco + power are two ORTHOGONAL owned children (motion + form) under one
+    // orchestrator — Frame's answer to the matrix-HSM explosion.
+    const sub = m as { loco?: unknown; power?: unknown };
+    return {
+      Platformer: () => liveState(m),
+      Locomotion: () => liveState(sub.loco),
+      PowerUp: () => liveState(sub.power),
+    };
+  },
   invaders: (m) => {
     // player + fleet are owned children; the orchestrator itself is an HSM
     // ($InGame parent over $Playing/$PlayerDying/$WaveComplete).
