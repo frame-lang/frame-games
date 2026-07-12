@@ -1,0 +1,153 @@
+@@[target("javascript")]
+
+// Pong — game-flow state machine.
+//
+// CANONICAL: this FSM mirrors the Godot reference
+// (frame-arcade/ch01-pong/frame/pong.fgd) exactly — same system
+// name, states, events, transitions, per-state queries, and
+// domain. Only the action-body host code differs (JavaScript
+// `this.` + brace syntax vs GDScript); the machine topology is
+// identical across the two ports.
+//
+// Phaser owns continuous physics/rendering and reads get_state()
+// each frame, firing interface events (launch, ball_out_left,
+// pause, resume, ...) as play happens. The machine owns every
+// transition.
+//
+// Interface events: start/restart/launch/pause/resume/tick and
+// the scoring events ball_out_left (ball off the left edge =>
+// right player scored) / ball_out_right (=> left scored). Queries
+// mirror Godot: get_state, get_score_left, get_score_right,
+// get_serve_direction (+1 serve right / -1 serve left),
+// get_winner, is_playing.
+@@system Pong {
+
+    operations:
+        // Single source of truth for the current state name. Replaces the
+        // per-state get_state() overrides that used to hardcode a
+        // snake_case string per state. Returns the Frame compartment
+        // name verbatim (PascalCase, matches the .dot diagram labels).
+        get_current_state_name(): string { @@:(@@:system.state.name) }
+        // Winning score is owned by the domain; expose it as a
+        // state-independent query so the renderer can show "first to N".
+        get_winning_score(): int { @@:(this.winning_score) }
+
+    interface:
+        start()
+        restart()
+        launch()
+        pause()
+        resume()
+        tick()
+        ball_out_left()
+        ball_out_right()
+        get_score_left(): int
+        get_score_right(): int
+        get_serve_direction(): int
+        get_winner(): string
+        is_playing(): bool
+
+    machine:
+        $AttractMode {
+            $>() {
+                this.score_left = 0
+                this.score_right = 0
+                this.winner = ""
+            }
+
+            start() { -> $Serving }
+
+            get_score_left(): int        { @@:(this.score_left) }
+            get_score_right(): int       { @@:(this.score_right) }
+            get_serve_direction(): int   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): bool           { @@:(false) }
+        }
+
+        $Serving {
+            launch() { -> $InPlay }
+            pause() { push$ -> $Paused }
+
+            get_score_left(): int        { @@:(this.score_left) }
+            get_score_right(): int       { @@:(this.score_right) }
+            get_serve_direction(): int   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): bool           { @@:(false) }
+        }
+
+        $InPlay {
+            ball_out_left() {
+                this.score_right = this.score_right + 1
+                this.last_scorer = "right"
+                -> $PointScored
+            }
+
+            ball_out_right() {
+                this.score_left = this.score_left + 1
+                this.last_scorer = "left"
+                -> $PointScored
+            }
+
+            pause() { push$ -> $Paused }
+
+            get_score_left(): int        { @@:(this.score_left) }
+            get_score_right(): int       { @@:(this.score_right) }
+            get_serve_direction(): int   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): bool           { @@:(true) }
+        }
+
+        $PointScored {
+            $>() {
+                if (this.last_scorer == "left") {
+                    this.serving_to = 1
+                } else {
+                    this.serving_to = -1
+                }
+
+                if (this.score_left >= this.winning_score) {
+                    this.winner = "left"
+                    -> "left wins" $GameOver
+                } else if (this.score_right >= this.winning_score) {
+                    this.winner = "right"
+                    -> "right wins" $GameOver
+                } else {
+                    -> "next point" $Serving
+                }
+            }
+
+            get_score_left(): int        { @@:(this.score_left) }
+            get_score_right(): int       { @@:(this.score_right) }
+            get_serve_direction(): int   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): bool           { @@:(false) }
+        }
+
+        $Paused {
+            resume() { -> pop$ }
+
+            get_score_left(): int        { @@:(this.score_left) }
+            get_score_right(): int       { @@:(this.score_right) }
+            get_serve_direction(): int   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): bool           { @@:(false) }
+        }
+
+        $GameOver {
+            restart() { -> $AttractMode }
+
+            get_score_left(): int        { @@:(this.score_left) }
+            get_score_right(): int       { @@:(this.score_right) }
+            get_serve_direction(): int   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): bool           { @@:(false) }
+        }
+
+    domain:
+        score_left: int = 0
+        score_right: int = 0
+        winning_score: int = 11
+        serving_to: int = 1
+        last_scorer: string = ""
+        winner: string = ""
+}

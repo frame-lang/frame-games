@@ -1,0 +1,23 @@
+{
+  "id": "pong",
+  "title": "Pong",
+  "summary": "The simplest game and the clearest look at the Frame core: a single state machine for the whole game flow. Attract → Serving → InPlay, a point scored bounces through a pass-through $PointScored state whose enter handler immediately re-transitions — either to the next serve or, at 11, to a labeled GameOver. Pause is a push$/pop$ interrupt. No children, no timers — just the FSM.",
+  "teaches": "The core FSM shape · $>() enter handlers · domain variables (scores, serve direction) · labeled transitions (-> \"left wins\" $GameOver) · a pass-through state that re-transitions on entry (two compartment moves on one event) · push$/pop$ pause",
+  "controls": "W/S or ←/↑↓ move paddle · SPACE serve / replay · P pause",
+  "mobileButtons": [
+    { "label": "▲", "key": "ArrowUp",   "hold": true,  "position": "left" },
+    { "label": "▼", "key": "ArrowDown", "hold": true,  "position": "left" },
+    { "label": "SERVE", "key": "Space", "hold": false, "position": "bottom" },
+    { "label": "⏸", "key": "KeyP",       "hold": false, "position": "bottom" }
+  ],
+  "machines": [
+    {
+      "system": "Pong",
+      "title": "Pong — one machine for the whole game",
+      "blurb": "$AttractMode (0-0, waiting) → $Serving → $InPlay, and every rally ends by routing through $PointScored. That state is the showcase: its $>() enter handler flips the serve direction and checks the score, then immediately re-transitions with a label — `-> \"left wins\" $GameOver` / `-> \"next point\" $Serving` — so a single scoring event advances the machine two compartments. Pause is a push$/pop$ that suspends whichever state was active."
+    }
+  ],
+  "versions": [
+    { "id": "js", "label": "Phaser · JS" }
+  ]
+}

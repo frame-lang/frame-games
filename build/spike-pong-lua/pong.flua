@@ -1,0 +1,127 @@
+@@[target("lua")]
+
+@@system Pong {
+
+    operations:
+        get_current_state_name(): String { @@:(@@:system.state.name) }
+        get_winning_score(): number { @@:(@@:self.winning_score) }
+
+    interface:
+        start()
+        restart()
+        launch()
+        pause()
+        resume()
+        tick()
+        ball_out_left()
+        ball_out_right()
+        get_score_left(): number
+        get_score_right(): number
+        get_serve_direction(): number
+        get_winner(): String
+        is_playing(): boolean
+
+    machine:
+        $AttractMode {
+            $>() {
+                @@:self.score_left = 0
+                @@:self.score_right = 0
+                @@:self.winner = ""
+            }
+
+            start() { -> $Serving }
+
+            get_score_left(): number        { @@:(@@:self.score_left) }
+            get_score_right(): number       { @@:(@@:self.score_right) }
+            get_serve_direction(): number   { @@:(@@:self.serving_to) }
+            get_winner(): String         { @@:(@@:self.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $Serving {
+            launch() { -> $InPlay }
+            pause() { push$ -> $Paused }
+
+            get_score_left(): number        { @@:(@@:self.score_left) }
+            get_score_right(): number       { @@:(@@:self.score_right) }
+            get_serve_direction(): number   { @@:(@@:self.serving_to) }
+            get_winner(): String         { @@:(@@:self.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $InPlay {
+            ball_out_left() {
+                @@:self.score_right = @@:self.score_right + 1
+                @@:self.last_scorer = "right"
+                -> $PointScored
+            }
+
+            ball_out_right() {
+                @@:self.score_left = @@:self.score_left + 1
+                @@:self.last_scorer = "left"
+                -> $PointScored
+            }
+
+            pause() { push$ -> $Paused }
+
+            get_score_left(): number        { @@:(@@:self.score_left) }
+            get_score_right(): number       { @@:(@@:self.score_right) }
+            get_serve_direction(): number   { @@:(@@:self.serving_to) }
+            get_winner(): String         { @@:(@@:self.winner) }
+            is_playing(): boolean           { @@:(true) }
+        }
+
+        $PointScored {
+            $>() {
+                if @@:self.last_scorer == "left" {
+                    @@:self.serving_to = 1
+                } else {
+                    @@:self.serving_to = -1
+                }
+
+                if @@:self.score_left >= @@:self.winning_score {
+                    @@:self.winner = "left"
+                    -> "left wins" $GameOver
+                } else if @@:self.score_right >= @@:self.winning_score {
+                    @@:self.winner = "right"
+                    -> "right wins" $GameOver
+                } else {
+                    -> "next point" $Serving
+                }
+            }
+
+            get_score_left(): number        { @@:(@@:self.score_left) }
+            get_score_right(): number       { @@:(@@:self.score_right) }
+            get_serve_direction(): number   { @@:(@@:self.serving_to) }
+            get_winner(): String         { @@:(@@:self.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $Paused {
+            resume() { -> pop$ }
+
+            get_score_left(): number        { @@:(@@:self.score_left) }
+            get_score_right(): number       { @@:(@@:self.score_right) }
+            get_serve_direction(): number   { @@:(@@:self.serving_to) }
+            get_winner(): String         { @@:(@@:self.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $GameOver {
+            restart() { -> $AttractMode }
+
+            get_score_left(): number        { @@:(@@:self.score_left) }
+            get_score_right(): number       { @@:(@@:self.score_right) }
+            get_serve_direction(): number   { @@:(@@:self.serving_to) }
+            get_winner(): String         { @@:(@@:self.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+    domain:
+        score_left: number = 0
+        score_right: number = 0
+        winning_score: number = 11
+        serving_to: number = 1
+        last_scorer: String = ""
+        winner: String = ""
+}

@@ -18,6 +18,8 @@ import { invaders } from "../games/invaders/src";
 import invadersManifest from "../games/invaders/game.json";
 import { platformer } from "../games/platformer/src";
 import platformerManifest from "../games/platformer/game.json";
+import { pong } from "../games/pong/src";
+import pongManifest from "../games/pong/game.json";
 import type { GameDef } from "./game-def";
 
 export interface MachineMeta {
@@ -109,6 +111,10 @@ export const GAMES: Record<string, GameEntry> = {
   platformer: {
     def: platformer,
     manifest: platformerManifest as GameManifest,
+  },
+  pong: {
+    def: pong,
+    manifest: pongManifest as GameManifest,
   },
 };
 

@@ -1,0 +1,7 @@
+[package]
+name="pong-oracle"
+version="0.1.0"
+edition="2021"
+[[bin]]
+name="pong-oracle"
+path="src/main.rs"

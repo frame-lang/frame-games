@@ -100,6 +100,12 @@ const STATE_ACCESSORS: Record<
       PowerUp: () => liveState(sub.power),
     };
   },
+  pong: (m) => {
+    // single-system game — the whole game flow is one machine, no children.
+    return {
+      Pong: () => liveState(m),
+    };
+  },
   invaders: (m) => {
     // player + fleet are owned children; the orchestrator itself is an HSM
     // ($InGame parent over $Playing/$PlayerDying/$WaveComplete).

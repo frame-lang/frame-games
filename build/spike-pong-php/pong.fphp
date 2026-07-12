@@ -1,0 +1,127 @@
+@@[target("php")]
+
+@@system Pong {
+
+    operations:
+        get_current_state_name() { @@:(@@:system.state.name) }
+        get_winning_score() { @@:($this->winning_score) }
+
+    interface:
+        start()
+        restart()
+        launch()
+        pause()
+        resume()
+        tick()
+        ball_out_left()
+        ball_out_right()
+        get_score_left()
+        get_score_right()
+        get_serve_direction()
+        get_winner()
+        is_playing()
+
+    machine:
+        $AttractMode {
+            $>() {
+                $this->score_left = 0;
+                $this->score_right = 0;
+                $this->winner = "";
+            }
+
+            start() { -> $Serving }
+
+            get_score_left()        { @@:($this->score_left) }
+            get_score_right()       { @@:($this->score_right) }
+            get_serve_direction()   { @@:($this->serving_to) }
+            get_winner()            { @@:($this->winner) }
+            is_playing()            { @@:(false) }
+        }
+
+        $Serving {
+            launch() { -> $InPlay }
+            pause() { push$ -> $Paused }
+
+            get_score_left()        { @@:($this->score_left) }
+            get_score_right()       { @@:($this->score_right) }
+            get_serve_direction()   { @@:($this->serving_to) }
+            get_winner()            { @@:($this->winner) }
+            is_playing()            { @@:(false) }
+        }
+
+        $InPlay {
+            ball_out_left() {
+                $this->score_right = $this->score_right + 1;
+                $this->last_scorer = "right";
+                -> $PointScored
+            }
+
+            ball_out_right() {
+                $this->score_left = $this->score_left + 1;
+                $this->last_scorer = "left";
+                -> $PointScored
+            }
+
+            pause() { push$ -> $Paused }
+
+            get_score_left()        { @@:($this->score_left) }
+            get_score_right()       { @@:($this->score_right) }
+            get_serve_direction()   { @@:($this->serving_to) }
+            get_winner()            { @@:($this->winner) }
+            is_playing()            { @@:(true) }
+        }
+
+        $PointScored {
+            $>() {
+                if ($this->last_scorer == "left") {
+                    $this->serving_to = 1;
+                } else {
+                    $this->serving_to = -1;
+                }
+
+                if ($this->score_left >= $this->winning_score) {
+                    $this->winner = "left";
+                    -> "left wins" $GameOver
+                } else if ($this->score_right >= $this->winning_score) {
+                    $this->winner = "right";
+                    -> "right wins" $GameOver
+                } else {
+                    -> "next point" $Serving
+                }
+            }
+
+            get_score_left()        { @@:($this->score_left) }
+            get_score_right()       { @@:($this->score_right) }
+            get_serve_direction()   { @@:($this->serving_to) }
+            get_winner()            { @@:($this->winner) }
+            is_playing()            { @@:(false) }
+        }
+
+        $Paused {
+            resume() { -> pop$ }
+
+            get_score_left()        { @@:($this->score_left) }
+            get_score_right()       { @@:($this->score_right) }
+            get_serve_direction()   { @@:($this->serving_to) }
+            get_winner()            { @@:($this->winner) }
+            is_playing()            { @@:(false) }
+        }
+
+        $GameOver {
+            restart() { -> $AttractMode }
+
+            get_score_left()        { @@:($this->score_left) }
+            get_score_right()       { @@:($this->score_right) }
+            get_serve_direction()   { @@:($this->serving_to) }
+            get_winner()            { @@:($this->winner) }
+            is_playing()            { @@:(false) }
+        }
+
+    domain:
+        score_left = 0
+        score_right = 0
+        winning_score = 11
+        serving_to = 1
+        last_scorer = ""
+        winner = ""
+}

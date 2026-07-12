@@ -167,3 +167,19 @@ build/spike-platformer-rust/
 build/spike-platformer-c/
 build/spike-platformer-cpp/
 build/spike-platformer-gd/
+# Pong oracle spikes (8th game): source+driver+trace force-added; generated/compiled local only.
+build/spike-pong-ts/
+build/spike-pong-py/
+build/spike-pong-rb/
+build/spike-pong-php/
+build/spike-pong-lua/
+build/spike-pong-cs/
+build/spike-pong-java/
+build/spike-pong-kt/
+build/spike-pong-go/
+build/spike-pong-rust/
+build/spike-pong-dart/
+build/spike-pong-swift/
+build/spike-pong-gd/
+build/spike-pong-c/
+build/spike-pong-cpp/

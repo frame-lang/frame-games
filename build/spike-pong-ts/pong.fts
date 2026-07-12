@@ -1,0 +1,127 @@
+@@[target("typescript")]
+
+@@system Pong {
+
+    operations:
+        get_current_state_name(): string { @@:(@@:system.state.name) }
+        get_winning_score(): number { @@:(this.winning_score) }
+
+    interface:
+        start()
+        restart()
+        launch()
+        pause()
+        resume()
+        tick()
+        ball_out_left()
+        ball_out_right()
+        get_score_left(): number
+        get_score_right(): number
+        get_serve_direction(): number
+        get_winner(): string
+        is_playing(): boolean
+
+    machine:
+        $AttractMode {
+            $>() {
+                this.score_left = 0
+                this.score_right = 0
+                this.winner = ""
+            }
+
+            start() { -> $Serving }
+
+            get_score_left(): number        { @@:(this.score_left) }
+            get_score_right(): number       { @@:(this.score_right) }
+            get_serve_direction(): number   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $Serving {
+            launch() { -> $InPlay }
+            pause() { push$ -> $Paused }
+
+            get_score_left(): number        { @@:(this.score_left) }
+            get_score_right(): number       { @@:(this.score_right) }
+            get_serve_direction(): number   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $InPlay {
+            ball_out_left() {
+                this.score_right = this.score_right + 1
+                this.last_scorer = "right"
+                -> $PointScored
+            }
+
+            ball_out_right() {
+                this.score_left = this.score_left + 1
+                this.last_scorer = "left"
+                -> $PointScored
+            }
+
+            pause() { push$ -> $Paused }
+
+            get_score_left(): number        { @@:(this.score_left) }
+            get_score_right(): number       { @@:(this.score_right) }
+            get_serve_direction(): number   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): boolean           { @@:(true) }
+        }
+
+        $PointScored {
+            $>() {
+                if (this.last_scorer == "left") {
+                    this.serving_to = 1
+                } else {
+                    this.serving_to = -1
+                }
+
+                if (this.score_left >= this.winning_score) {
+                    this.winner = "left"
+                    -> "left wins" $GameOver
+                } else if (this.score_right >= this.winning_score) {
+                    this.winner = "right"
+                    -> "right wins" $GameOver
+                } else {
+                    -> "next point" $Serving
+                }
+            }
+
+            get_score_left(): number        { @@:(this.score_left) }
+            get_score_right(): number       { @@:(this.score_right) }
+            get_serve_direction(): number   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $Paused {
+            resume() { -> pop$ }
+
+            get_score_left(): number        { @@:(this.score_left) }
+            get_score_right(): number       { @@:(this.score_right) }
+            get_serve_direction(): number   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+        $GameOver {
+            restart() { -> $AttractMode }
+
+            get_score_left(): number        { @@:(this.score_left) }
+            get_score_right(): number       { @@:(this.score_right) }
+            get_serve_direction(): number   { @@:(this.serving_to) }
+            get_winner(): string         { @@:(this.winner) }
+            is_playing(): boolean           { @@:(false) }
+        }
+
+    domain:
+        score_left: number = 0
+        score_right: number = 0
+        winning_score: number = 11
+        serving_to: number = 1
+        last_scorer: string = ""
+        winner: string = ""
+}

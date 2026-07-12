@@ -1,0 +1,17 @@
+Godot Engine v4.6.2.stable.official.71f334935 - https://godotengine.org
+
+000 created (AttractMode / 0-0)            st=AttractMode  sl= 0 sr= 0 serve= 1 play=0 winner=      
+OP  get_current_state_name=AttractMode get_winning_score=11
+001 start -> Serving                       st=Serving      sl= 0 sr= 0 serve= 1 play=0 winner=      
+002 pause during Serving (push)            st=Paused       sl= 0 sr= 0 serve= 1 play=0 winner=      
+003 resume (pop -> Serving)                st=Serving      sl= 0 sr= 0 serve= 1 play=0 winner=      
+004 launch -> InPlay (playing)             st=InPlay       sl= 0 sr= 0 serve= 1 play=1 winner=      
+005 pause during InPlay (push)             st=Paused       sl= 0 sr= 0 serve= 1 play=0 winner=      
+006 resume (pop -> InPlay)                 st=InPlay       sl= 0 sr= 0 serve= 1 play=1 winner=      
+007 ball_out_left -> right+1, serve -1     st=Serving      sl= 0 sr= 1 serve=-1 play=0 winner=      
+008 pointLeft -> left+1, serve +1          st=Serving      sl= 1 sr= 1 serve= 1 play=0 winner=      
+009 right at 10 (one short of 11)          st=Serving      sl= 1 sr=10 serve=-1 play=0 winner=      
+010 right scores 11 -> GameOver [right wins] st=GameOver     sl= 1 sr=11 serve=-1 play=0 winner=right 
+WIN winner=right playing=0 sl=1 sr=11
+011 restart -> AttractMode (reset)         st=AttractMode  sl= 0 sr= 0 serve=-1 play=0 winner=      
+MIRROR left win: st=GameOver winner=left sl=11 serve=1
