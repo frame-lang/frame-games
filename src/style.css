@@ -881,6 +881,14 @@ body.fsm-page-body {
 .index-head {
   padding: 40px 24px 8px;
 }
+/* Back to the main site; same look as the game pages' "◂ Frame Games". */
+.index-head .site-link {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+}
 .index-head h1 {
   margin: 0;
   font-size: 28px;
